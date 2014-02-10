@@ -1751,6 +1751,72 @@ public abstract class GitAPITestCase extends TestCase {
         }
     }
 
+    @Bug(22510)
+    public void test_submodule_checkout() throws Exception {
+        String subBranch = "tests/getSubmodules";
+        String subRefName = "origin/" + subBranch;
+        String expectedDir = "modules/ntp";
+        String expectedFile = "modules/ntp/CONTRIBUTING.md";
+        String expectedContent = "Puppet Labs modules on the Puppet Forge are open projects";
+
+        w = clone(localMirror());
+
+        /* Checkout a branch which includes submodules */
+        w.git.checkout().ref(subRefName).branch(subBranch).execute();
+        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
+        assertFalse(expectedFile + " found after checkout", w.exists(expectedFile));
+
+        /* Call submodule update */
+        w.git.submoduleUpdate().recursive(true).execute();
+        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
+        assertTrue(expectedFile + " not found after checkout", w.exists(expectedFile));
+        String content = w.contentOf(expectedFile);
+        assertTrue(expectedFile + " wrong content: " + content, content.contains(expectedContent));
+
+        String notSubBranchName = "tests/notSubmodules";
+        String notSubRefName = "origin/" + notSubBranchName;
+        String expectedNonsenseString = "This is not a useful contribution";
+
+        /* Checkout a detached head which does not include submodules,
+         * since checkout of a branch does not currently use the "-f"
+         * option (though it probably should).
+         */
+        w.git.checkout().ref(notSubRefName).execute();
+        // w.git.checkout().ref(notSubRefName).branch(notSubBranchName).execute();
+        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
+        assertTrue(expectedFile + " not found after checkout", w.exists(expectedFile));
+        content = w.contentOf(expectedFile);
+        assertTrue(expectedFile + " wrong content: " + content, content.contains(expectedNonsenseString));
+
+        /* Checkout master branch - will leave submodule files untracked */
+        w.git.checkout().ref("origin/master").execute();
+        // w.git.checkout().ref("origin/master").branch("master").execute();
+        assertTrue(expectedDir + " not found after master checkout", w.exists(expectedDir));
+        assertFalse(expectedFile + "  found after master checkout", w.exists(expectedFile));
+        w.cmd("git clean -xffd");
+        assertFalse(expectedDir + " found after master clean", w.exists(expectedDir));
+
+        /* Checkout a branch which includes submodules after a prior
+         * checkout with a file which has the same name as a file
+         * provided by a submodule checkout.  Use a detached head,
+         * since checkout of a branch does not currently use the "-f"
+         * option (though it probably should).
+         */
+        // w.git.checkout().ref(subRefName).branch(subBranch).execute();
+        w.git.checkout().ref(subRefName).execute();
+        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
+        assertFalse(expectedFile + " found after checkout", w.exists(expectedFile));
+
+        /* Call submodule update */
+        w.git.submoduleUpdate().recursive(true).execute();
+        w.cmd("git clean -xffd");
+        w.git.submoduleUpdate().recursive(true).execute();
+        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
+        assertTrue(expectedFile + " not found after checkout", w.exists(expectedFile));
+        content = w.contentOf(expectedFile);
+        assertTrue(expectedFile + " wrong content: " + content, content.contains(expectedContent));
+    }
+
     public void test_no_submodules() throws IOException, InterruptedException {
         w.init();
         w.touch("committed-file", "committed-file content " + java.util.UUID.randomUUID().toString());
