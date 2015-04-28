@@ -1751,6 +1751,7 @@ public abstract class GitAPITestCase extends TestCase {
         }
     }
 
+    @NotImplementedInJGit /* Implemented in JGit, but fails */
     @Bug(22510)
     public void test_submodule_checkout() throws Exception {
         String subBranch = "tests/getSubmodules";
