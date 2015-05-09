@@ -1751,7 +1751,19 @@ public abstract class GitAPITestCase extends TestCase {
         }
     }
 
-    @NotImplementedInJGit /* Implemented in JGit, but fails */
+    private String listDir(File dir) {
+        File[] files = dir.listFiles();
+        StringBuilder fileList = new StringBuilder();
+        for (File file : files) {
+            fileList.append(file.getName());
+            fileList.append(',');
+        }
+        if (fileList.length() > 0) {
+            fileList.deleteCharAt(fileList.length() - 1);
+        }
+        return fileList.toString();
+    }
+
     @Bug(22510)
     public void test_submodule_checkout() throws Exception {      
         String subBranch = "tests/getSubmodules";
@@ -1759,18 +1771,37 @@ public abstract class GitAPITestCase extends TestCase {
         String expectedDir = "modules/ntp";
         String expectedFile = "modules/ntp/CONTRIBUTING.md";
         String expectedContent = "Puppet Labs modules on the Puppet Forge are open projects";
+        String keeperFile = "modules/keeper"; /* Empty file in the tests/getSubmodules branch */
 
         w = clone(localMirror());
 
-        /* Checkout a branch which includes submodules */
+        File modulesDir = new File(w.repo, "modules");
+        assertFalse(modulesDir + " found before checkout, found " + listDir(w.repo), modulesDir.exists());
+        assertFalse(keeperFile + " found before checkout", w.exists(keeperFile));
+
+        /* Checkout a branch which includes submodules (in modules directory) */
         w.git.checkout().ref(subRefName).branch(subBranch).execute();
-        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
+        assertTrue(modulesDir + " not found after checkout, found " + listDir(w.repo), modulesDir.exists());
+        assertTrue(keeperFile + " not found after checkout, found " + listDir(modulesDir), w.exists(keeperFile));
+
+        /* Command line git checkout creates empty directories for modules, JGit does not */
+        /* That behavioral difference seems harmless */
+        assertEquals(expectedDir + " not found after checkout", w.git instanceof CliGitAPIImpl, w.exists(expectedDir));
         assertFalse(expectedFile + " found after checkout", w.exists(expectedFile));
 
-        /* Call submodule update */
+        /* Call submodule update without recursion */
+        w.git.submoduleUpdate().recursive(false).execute();
+        assertTrue(expectedDir + " not found after non-recursive checkout", w.exists(expectedDir));
+        if (w.git instanceof CliGitAPIImpl) {
+            assertFalse(expectedFile + " found after CliGit non-recursive checkout, found " + listDir(new File(modulesDir, "ntp")), w.exists(expectedFile));
+        } else {
+            assertTrue(expectedFile + " not found after JGit non-recursive checkout, found " + listDir(new File(modulesDir, "ntp")), w.exists(expectedFile));
+        }
+
+        /* Call submodule update with recursion */
         w.git.submoduleUpdate().recursive(true).execute();
-        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
-        assertTrue(expectedFile + " not found after checkout", w.exists(expectedFile));
+        assertTrue(expectedDir + " not found after recursive checkout, found " + listDir(modulesDir), w.exists(expectedDir));
+        assertTrue(expectedFile + " not found after recursive checkout, found " + listDir(modulesDir), w.exists(expectedFile));
         String content = w.contentOf(expectedFile);
         assertTrue(expectedFile + " wrong content: " + content, content.contains(expectedContent));
 
@@ -1794,8 +1825,10 @@ public abstract class GitAPITestCase extends TestCase {
         // w.git.checkout().ref("origin/master").branch("master").execute();
         assertTrue(expectedDir + " not found after master checkout", w.exists(expectedDir));
         assertFalse(expectedFile + "  found after master checkout", w.exists(expectedFile));
+        // w.git.clean(); // insufficient, even with command line git
         w.cmd("git clean -xffd");
         assertFalse(expectedDir + " found after master clean", w.exists(expectedDir));
+        assertFalse(modulesDir + " found after master clean, found " + listDir(w.repo), modulesDir.exists());
 
         /* Checkout a branch which includes submodules after a prior
          * checkout with a file which has the same name as a file
@@ -1805,8 +1838,15 @@ public abstract class GitAPITestCase extends TestCase {
          */
         // w.git.checkout().ref(subRefName).branch(subBranch).execute();
         w.git.checkout().ref(subRefName).execute();
-        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
+        assertTrue(modulesDir + " not found after checkout, found " + listDir(w.repo), modulesDir.exists());
+        assertEquals(expectedDir + " not found after checkout, found " + listDir(modulesDir), w.git instanceof CliGitAPIImpl, w.exists(expectedDir));
         assertFalse(expectedFile + " found after checkout", w.exists(expectedFile));
+
+        /* This test fails for JGit beyond this point in the method */
+        /* WORKING HERE */
+        if (w.git instanceof JGitAPIImpl) {
+            return;
+        }
 
         /* Call submodule update */
         w.git.submoduleUpdate().recursive(true).execute();
