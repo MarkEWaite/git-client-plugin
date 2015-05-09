@@ -1753,7 +1753,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     @NotImplementedInJGit /* Implemented in JGit, but fails */
     @Bug(22510)
-    public void test_submodule_checkout() throws Exception {
+    public void test_submodule_checkout() throws Exception {      
         String subBranch = "tests/getSubmodules";
         String subRefName = "origin/" + subBranch;
         String expectedDir = "modules/ntp";
@@ -1782,8 +1782,8 @@ public abstract class GitAPITestCase extends TestCase {
          * since checkout of a branch does not currently use the "-f"
          * option (though it probably should).
          */
-        w.git.checkout().ref(notSubRefName).execute();
-        // w.git.checkout().ref(notSubRefName).branch(notSubBranchName).execute();
+        // w.git.checkout().ref(notSubRefName).execute();
+        w.git.checkout().ref(notSubRefName).branch(notSubBranchName).deleteBranchIfExist(true).execute();
         assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
         assertTrue(expectedFile + " not found after checkout", w.exists(expectedFile));
         content = w.contentOf(expectedFile);
