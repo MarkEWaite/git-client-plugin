@@ -1777,7 +1777,6 @@ public abstract class GitAPITestCase extends TestCase {
         String ntpDirName = "modules/ntp";
         String contributingFileName = "modules/ntp/CONTRIBUTING.md";
         String contributingFileContent = "Puppet Labs modules on the Puppet Forge are open projects";
-        String keeperFileName = "modules/keeper"; /* Empty file in the tests/getSubmodules branch */
 
         w = clone(localMirror());
         File modulesDir = new File(w.repo, "modules");
