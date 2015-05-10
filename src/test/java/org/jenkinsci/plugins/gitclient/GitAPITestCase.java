@@ -1865,16 +1865,17 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.checkout().ref("origin/master").execute();
         // w.git.checkout().ref("origin/master").branch("master").execute();
         assertDirExists(ntpDir); /* Surprising, since checkout origin/master should have removed it */
-
-        assertTrue(ntpDirName + " not found after master checkout", w.exists(ntpDirName));
+        assertDirExists(firewallDir);
         assertFileNotFound(contributingFile);
 
         /* Attempt to remove submodule remnant will *silently fail* on CliGitAPIImpl */
         w.git.clean();
-        if (w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1,7,9,0)) {
+        if (w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 7, 9, 0)) {
             assertDirExists(ntpDir); /* Surprising, since clean should have removed it */
+            assertDirExists(firewallDir);
         } else {
             assertDirNotFound(ntpDir);
+            assertDirNotFound(firewallDir);
         }
 
         /* Really remove submodule remnant, use git command line double force */
@@ -1883,6 +1884,7 @@ public abstract class GitAPITestCase extends TestCase {
         }
         assertDirNotFound(ntpDir);
         assertDirNotFound(modulesDir);
+        assertDirNotFound(firewallDir);
 
         /* Checkout a branch which *includes submodules* after a prior
          * checkout with a file which has the same name as a file
@@ -1890,30 +1892,38 @@ public abstract class GitAPITestCase extends TestCase {
          * since checkout of a branch does not currently use the "-f"
          * option (though it probably should).
          */
+        assertEquals(ObjectId.fromString("846f19546f93a5baaa2da8faa64474af316167db"), w.git.revParse(subRefName));
         // w.git.checkout().ref(subRefName).branch(subBranch).execute();
         w.git.checkout().ref(subRefName).execute();
         assertDirExists(modulesDir);
         if (w.git instanceof CliGitAPIImpl) {
             assertDirExists(ntpDir);
+            assertDirExists(firewallDir);
         } else {
             assertDirNotFound(ntpDir); /* Surprising, since directory is in subRefName branch */
+            assertDirNotFound(firewallDir); /* Surprising, since directory is in subRefName branch */
         }
         assertFileNotFound(contributingFile); /* Not yet visible, need submodule update */
 
-        /* This test fails for JGit beyond this point in the method */
-        /* WORKING HERE */
+        /* Call submodule update */
+        w.git.submoduleClean(true);
+        assertDirExists(firewallDir); /* Surprising, since directory is in subRefName branch */
+        assertDirExists(ntpDir);
+        assertFileNotFound(contributingFile);
+
+        w.git.submoduleInit();
+        assertDirExists(firewallDir); /* Surprising, since directory is in subRefName branch */
+        assertDirExists(ntpDir);
+        assertFileNotFound(contributingFile);
+
         if (w.git instanceof JGitAPIImpl) {
+            /* submoduleUpdate().recursive(true).execute() throws an exception */
             return;
         }
-
-        /* Call submodule update */
         w.git.submoduleUpdate().recursive(true).execute();
-        w.cmd("git clean -xffd");
-        w.git.submoduleUpdate().recursive(true).execute();
-        assertTrue(ntpDirName + " not found after checkout", w.exists(ntpDirName));
-        assertTrue(contributingFileName + " not found after checkout", w.exists(contributingFileName));
-        String content = w.contentOf(contributingFileName);
-        assertTrue(contributingFileName + " wrong content: " + content, content.contains(contributingFileContent));
+        assertDirExists(ntpDir);
+        assertFileExists(contributingFile);
+        assertFileContains(contributingFile, contributingFileContent);
     }
 
     private void assertFileExists(File file) {
