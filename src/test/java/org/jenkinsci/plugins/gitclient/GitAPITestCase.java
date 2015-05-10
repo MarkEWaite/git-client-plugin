@@ -1752,7 +1752,13 @@ public abstract class GitAPITestCase extends TestCase {
     }
 
     private String listDir(File dir) {
+        if (dir == null || !dir.exists()) {
+            return "";
+        }
         File[] files = dir.listFiles();
+        if (files == null) {
+            return "";
+        }
         StringBuilder fileList = new StringBuilder();
         for (File file : files) {
             fileList.append(file.getName());
@@ -1768,66 +1774,80 @@ public abstract class GitAPITestCase extends TestCase {
     public void test_submodule_checkout() throws Exception {      
         String subBranch = "tests/getSubmodules";
         String subRefName = "origin/" + subBranch;
-        String expectedDir = "modules/ntp";
-        String expectedFile = "modules/ntp/CONTRIBUTING.md";
-        String expectedContent = "Puppet Labs modules on the Puppet Forge are open projects";
-        String keeperFile = "modules/keeper"; /* Empty file in the tests/getSubmodules branch */
+        String ntpDirName = "modules/ntp";
+        String contributingFileName = "modules/ntp/CONTRIBUTING.md";
+        String contributingFileContent = "Puppet Labs modules on the Puppet Forge are open projects";
+        String keeperFileName = "modules/keeper"; /* Empty file in the tests/getSubmodules branch */
 
         w = clone(localMirror());
-
         File modulesDir = new File(w.repo, "modules");
-        assertFalse(modulesDir + " found before checkout, found " + listDir(w.repo), modulesDir.exists());
-        assertFalse(keeperFile + " found before checkout", w.exists(keeperFile));
+        File keeperFile = new File(modulesDir, "keeper");
+        File ntpDir = new File(modulesDir, "ntp");
+        File contributingFile = new File(ntpDir, "CONTRIBUTING.md");
+        assertDirNotFound(modulesDir);
+        assertFileNotFound(keeperFile);
+        assertDirNotFound(ntpDir);
+        assertFileNotFound(contributingFile);
 
         /* Checkout a branch which includes submodules (in modules directory) */
         w.git.checkout().ref(subRefName).branch(subBranch).execute();
-        assertTrue(modulesDir + " not found after checkout, found " + listDir(w.repo), modulesDir.exists());
-        assertTrue(keeperFile + " not found after checkout, found " + listDir(modulesDir), w.exists(keeperFile));
+        assertDirExists(modulesDir);
+        assertFileExists(keeperFile);
+        assertFileContents(keeperFile, "");
 
         /* Command line git checkout creates empty directories for modules, JGit does not */
         /* That behavioral difference seems harmless */
-        assertEquals(expectedDir + " not found after checkout", w.git instanceof CliGitAPIImpl, w.exists(expectedDir));
-        assertFalse(expectedFile + " found after checkout", w.exists(expectedFile));
+        if (w.git instanceof CliGitAPIImpl) {
+            assertDirExists(ntpDir);
+        } else {
+            assertDirNotFound(ntpDir);
+        }
+        assertFileNotFound(contributingFile);
 
         /* Call submodule update without recursion */
         w.git.submoduleUpdate().recursive(false).execute();
-        assertTrue(expectedDir + " not found after non-recursive checkout", w.exists(expectedDir));
+        assertDirExists(ntpDir);
+        assertFileExists(keeperFile);
+        assertFileContents(keeperFile, "");
         if (w.git instanceof CliGitAPIImpl) {
-            assertFalse(expectedFile + " found after CliGit non-recursive checkout, found " + listDir(new File(modulesDir, "ntp")), w.exists(expectedFile));
+            assertFileNotFound(contributingFile);
         } else {
-            assertTrue(expectedFile + " not found after JGit non-recursive checkout, found " + listDir(new File(modulesDir, "ntp")), w.exists(expectedFile));
+            assertFileExists(contributingFile);
         }
 
         /* Call submodule update with recursion */
         w.git.submoduleUpdate().recursive(true).execute();
-        assertTrue(expectedDir + " not found after recursive checkout, found " + listDir(modulesDir), w.exists(expectedDir));
-        assertTrue(expectedFile + " not found after recursive checkout, found " + listDir(modulesDir), w.exists(expectedFile));
-        String content = w.contentOf(expectedFile);
-        assertTrue(expectedFile + " wrong content: " + content, content.contains(expectedContent));
+        assertDirExists(ntpDir);
+        assertFileExists(contributingFile);
+        assertFileContains(contributingFile, contributingFileContent);
 
         String notSubBranchName = "tests/notSubmodules";
         String notSubRefName = "origin/" + notSubBranchName;
-        String expectedNonsenseString = "This is not a useful contribution";
+        String contributingFileContentFromNonsubmoduleBranch = "This is not a useful contribution";
 
         /* Checkout a detached head which does not include submodules,
          * since checkout of a branch does not currently use the "-f"
-         * option (though it probably should).
+         * option (though it probably should).  The checkout includes a file
+         * modules/ntp/CONTRIBUTING.md which collides with a file from the
+         * submodule but is provided from the repository rather than from a
+         * submodule.
+         *
+         * Should also test adding a clean to this sequence.
          */
         // w.git.checkout().ref(notSubRefName).execute();
         w.git.checkout().ref(notSubRefName).branch(notSubBranchName).deleteBranchIfExist(true).execute();
-        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
-        assertTrue(expectedFile + " not found after checkout", w.exists(expectedFile));
-        content = w.contentOf(expectedFile);
-        assertTrue(expectedFile + " wrong content: " + content, content.contains(expectedNonsenseString));
+        assertDirExists(ntpDir); /* Surprising, since checkout should have removed it */
+        assertFileExists(contributingFile); /* Surprising, since checkout should have removed it */
+        assertFileContains(contributingFile, contributingFileContentFromNonsubmoduleBranch);
 
         /* Checkout master branch - will leave submodule files untracked */
         w.git.checkout().ref("origin/master").execute();
         // w.git.checkout().ref("origin/master").branch("master").execute();
-        assertTrue(expectedDir + " not found after master checkout", w.exists(expectedDir));
-        assertFalse(expectedFile + "  found after master checkout", w.exists(expectedFile));
+        assertTrue(ntpDirName + " not found after master checkout", w.exists(ntpDirName));
+        assertFalse(contributingFileName + "  found after master checkout", w.exists(contributingFileName));
         // w.git.clean(); // insufficient, even with command line git
         w.cmd("git clean -xffd");
-        assertFalse(expectedDir + " found after master clean", w.exists(expectedDir));
+        assertFalse(ntpDirName + " found after master clean", w.exists(ntpDirName));
         assertFalse(modulesDir + " found after master clean, found " + listDir(w.repo), modulesDir.exists());
 
         /* Checkout a branch which includes submodules after a prior
@@ -1839,8 +1859,8 @@ public abstract class GitAPITestCase extends TestCase {
         // w.git.checkout().ref(subRefName).branch(subBranch).execute();
         w.git.checkout().ref(subRefName).execute();
         assertTrue(modulesDir + " not found after checkout, found " + listDir(w.repo), modulesDir.exists());
-        assertEquals(expectedDir + " not found after checkout, found " + listDir(modulesDir), w.git instanceof CliGitAPIImpl, w.exists(expectedDir));
-        assertFalse(expectedFile + " found after checkout", w.exists(expectedFile));
+        assertEquals(ntpDirName + " not found after checkout, found " + listDir(modulesDir), w.git instanceof CliGitAPIImpl, w.exists(ntpDirName));
+        assertFalse(contributingFileName + " found after checkout", w.exists(contributingFileName));
 
         /* This test fails for JGit beyond this point in the method */
         /* WORKING HERE */
@@ -1852,10 +1872,91 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.submoduleUpdate().recursive(true).execute();
         w.cmd("git clean -xffd");
         w.git.submoduleUpdate().recursive(true).execute();
-        assertTrue(expectedDir + " not found after checkout", w.exists(expectedDir));
-        assertTrue(expectedFile + " not found after checkout", w.exists(expectedFile));
-        content = w.contentOf(expectedFile);
-        assertTrue(expectedFile + " wrong content: " + content, content.contains(expectedContent));
+        assertTrue(ntpDirName + " not found after checkout", w.exists(ntpDirName));
+        assertTrue(contributingFileName + " not found after checkout", w.exists(contributingFileName));
+        String content = w.contentOf(contributingFileName);
+        assertTrue(contributingFileName + " wrong content: " + content, content.contains(contributingFileContent));
+    }
+
+    private void assertFileExists(File file) {
+        assertTrue(file + " not found, peer files: " + listDir(file.getParentFile()), file.exists());
+    }
+
+    private void assertFileNotFound(File file) {
+        assertFalse(file + " found, peer files: " + listDir(file.getParentFile()), file.exists());
+    }
+
+    private void assertDirExists(File dir) {
+        assertFileExists(dir);
+        assertTrue(dir + " is not a directory", dir.isDirectory());
+    }
+
+    private void assertDirNotFound(File dir) {
+        assertFileNotFound(dir);
+    }
+
+    private void assertFileContains(File file, String expectedContent) throws IOException {
+        assertFileExists(file);
+        final String fileContent = FileUtils.readFileToString(file, "UTF-8");
+        final String message = file + " does not contain '" + expectedContent + "', contains '" + fileContent + "'";
+        assertTrue(message, fileContent.contains(expectedContent));
+    }
+
+    private void assertFileContents(File file, String expectedContent) throws IOException {
+        assertFileExists(file);
+        final String fileContent = FileUtils.readFileToString(file, "UTF-8");
+        assertEquals(file + " wrong content", expectedContent, fileContent);
+    }
+
+    private void assertSubmodule(File repo, boolean shouldExist, boolean verifyContent) throws IOException {
+        final File modulesDir = new File(w.repo, "modules");
+        final File ntpDir = new File(modulesDir, "ntp");
+        final File firewallDir = new File(modulesDir, "firewall");
+        final File keeperFile = new File(modulesDir, "keeper");
+        final File contributingFile = new File(ntpDir, "CONTRIBUTING.md");
+        if (shouldExist) {
+            assertDirExists(modulesDir);
+            assertDirExists(ntpDir);
+            assertDirExists(firewallDir);
+        } else {
+            assertDirNotFound(modulesDir);
+            assertDirNotFound(ntpDir);
+            assertDirNotFound(firewallDir);
+            assertFileNotFound(keeperFile);
+            assertFileNotFound(contributingFile);
+        }
+        assertFalse("Assertion argument error - can't verify content of non-existent files", verifyContent && !shouldExist);
+        if (verifyContent) {
+            final String keeperContent = "";
+            final String contributingContent = "Puppet Labs modules on the Puppet Forge are open projects";
+            assertFileContents(keeperFile, keeperContent);
+            assertFileContents(contributingFile, contributingContent);
+        }
+    }
+
+    private void assertSubmoduleStructure(File repoDir, boolean shouldExist) throws IOException {
+        assertSubmodule(repoDir, shouldExist, false);
+    }
+
+    private void assertSubmoduleContents(File repoDir, boolean shouldExist) throws IOException {
+        assertSubmodule(repoDir, shouldExist, true);
+    }
+
+    @Bug(22510)
+    public void test_submodule_checkout_simple() throws Exception {
+        w = clone(localMirror());
+        assertSubmoduleStructure(w.repo, false);
+
+        /* Checkout a branch which includes submodules (in modules directory) */
+        String subBranch = "tests/getSubmodules";
+        String subRefName = "origin/" + subBranch;
+        w.git.checkout().ref(subRefName).branch(subBranch).execute();
+        // assertSubmoduleStructure(w.repo, true);
+        // assertSubmoduleContents(w.repo, false);
+
+        w.git.submoduleUpdate().recursive(true).execute();
+        assertSubmoduleStructure(w.repo, true);
+        // assertSubmoduleContents(w.repo, true);
     }
 
     public void test_no_submodules() throws IOException, InterruptedException {
