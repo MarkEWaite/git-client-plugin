@@ -1871,7 +1871,7 @@ public abstract class GitAPITestCase extends TestCase {
 
         /* Attempt to remove submodule remnant will *silently fail* on CliGitAPIImpl */
         w.git.clean();
-        if (w.git instanceof CliGitAPIImpl) {
+        if (w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1,7,9,0)) {
             assertDirExists(ntpDir); /* Surprising, since clean should have removed it */
         } else {
             assertDirNotFound(ntpDir);
@@ -2049,7 +2049,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     @NotImplementedInJGit
     public void test_trackingSubmodule() throws Exception {
-        if (! ((CliGitAPIImpl)w.git).isAtLeastVersion(1,8,2,0)) {
+        if (!w.cgit().isAtLeastVersion(1,8,2,0)) {
             System.err.println("git must be at least 1.8.2 to do tracking submodules.");
             return;
         }
@@ -2217,7 +2217,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     @NotImplementedInJGit
     public void test_trackingSubmoduleBranches() throws Exception {
-        if (! ((CliGitAPIImpl)w.git).isAtLeastVersion(1,8,2,0)) {
+        if (!w.cgit().isAtLeastVersion(1,8,2,0)) {
             setTimeoutVisibleInCurrentTest(false);
             System.err.println("git must be at least 1.8.2 to do tracking submodules.");
             return;
