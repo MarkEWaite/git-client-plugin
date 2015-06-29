@@ -31,7 +31,7 @@ public class SubmoduleTest {
 
     private LocalWorkspace ws;
 
-    /* 
+    /*
      * Starting branch to consider:
      * - master
      * - tests/getSubmodules
