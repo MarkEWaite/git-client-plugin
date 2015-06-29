@@ -1846,8 +1846,8 @@ public abstract class GitAPITestCase extends TestCase {
         assertFileContains(contributingFile, contributingFileContentFromNonsubmoduleBranch);
         assertDirExists(firewallDir); /* checkout should have removed it ? */
 
-        /* Attempt to remove submodule remnant will *silently fail* on CliGitAPIImpl, 
-         * throws a JGit internal exception with JGit 3.7.1 
+        /* Attempt to remove submodule remnant will *silently fail* on CliGitAPIImpl,
+         * throws a JGit internal exception with JGit 3.7.1
          */
         if (w.git instanceof CliGitAPIImpl) {
             w.git.clean();
@@ -2292,7 +2292,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     @NotImplementedInJGit
     public void test_sparse_checkout() throws Exception {
-        /* Sparse checkout was added in git 1.7.0, but the checkout -f syntax 
+        /* Sparse checkout was added in git 1.7.0, but the checkout -f syntax
          * required by the plugin implementation does not work in git 1.7.1.
          */
         if (!w.cgit().isAtLeastVersion(1, 7, 9, 0)) {
@@ -2875,7 +2875,7 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("file1 does not exist after merge", w.exists("file1"));
 
         /* Git 1.7.1 does not understand the --orphan argument to checkout.
-         * Stop the test here on older git versions 
+         * Stop the test here on older git versions
          */
         if (!w.cgit().isAtLeastVersion(1, 7, 9, 0)) {
             return;
