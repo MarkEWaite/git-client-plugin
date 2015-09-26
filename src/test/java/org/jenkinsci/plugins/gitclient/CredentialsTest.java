@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import static junit.framework.TestCase.assertTrue;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jgit.lib.ObjectId;
@@ -89,9 +90,6 @@ public class CredentialsTest {
     public CredentialsTest(String gitImpl, String gitRepoUrl, String username, String password, File privateKey, String fileToCheck, Boolean submodules) {
         this.gitImpl = gitImpl;
         this.gitRepoURL = gitRepoUrl;
-        if (privateKey == null && defaultPrivateKey.exists()) {
-            privateKey = defaultPrivateKey;
-        }
         this.privateKey = privateKey;
         this.username = username;
         this.password = password;
@@ -187,8 +185,11 @@ public class CredentialsTest {
             if (defaultPrivateKey.exists()) {
                 String username = System.getProperty("user.name");
                 String url = "https://github.com/jenkinsci/git-client-plugin.git";
-                Object[] masterRepo = {implementation, url, username, null, defaultPrivateKey, "README.md", false};
-                repos.add(masterRepo);
+                /* Add URL if it matches the pattern */
+                if (URL_MUST_MATCH_PATTERN.matcher(url).matches()) {
+                    Object[] masterRepo = {implementation, url, username, null, defaultPrivateKey, "README.md", false};
+                    repos.add(masterRepo);
+                }
             }
 
             /* Add additional repositories if the ~/.ssh/auth-data directory
@@ -211,7 +212,7 @@ public class CredentialsTest {
                     String fileToCheck = (String) entry.get("file");
                     if (skipIf != null) {
                         if (skipIf.equals(implementation)) {
-                             continue;
+                            continue;
                         }
                     }
 
@@ -239,8 +240,11 @@ public class CredentialsTest {
                         continue;
                     }
 
-                    Object[] repo = {implementation, repoURL, username, password, privateKey, fileToCheck, submodules};
-                    repos.add(repo);
+                    /* Add URL if it matches the pattern */
+                    if (URL_MUST_MATCH_PATTERN.matcher(repoURL).matches()) {
+                        Object[] repo = {implementation, repoURL, username, password, privateKey, fileToCheck, submodules};
+                        repos.add(repo);
+                    }
                 }
             }
         }
@@ -263,6 +267,15 @@ public class CredentialsTest {
         return fileList.toString();
     }
 
+    private void addCredential(String username, String password, File privateKey) throws IOException {
+        if (password != null) {
+            git.addDefaultCredentials(newUsernamePasswordCredential(username, password));
+        } else if (privateKey != null) {
+            git.addDefaultCredentials(newPrivateKeyCredential(username, privateKey));
+        }
+
+    }
+
     @Test
     public void testFetchWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
@@ -271,12 +284,15 @@ public class CredentialsTest {
         refSpecs.add(new RefSpec("+refs/heads/*:refs/remotes/" + origin + "/*"));
         git.init_().workspace(repo.getAbsolutePath()).execute();
         assertFalse("file " + fileToCheck + " in " + repo + ", has " + listDir(repo), clonedFile.exists());
-        if (password != null) {
-            git.addDefaultCredentials(newUsernamePasswordCredential(username, password));
-        } else {
-            git.addDefaultCredentials(newPrivateKeyCredential(username, privateKey));
+        addCredential(username, password, privateKey);
+        /* Save some bandwidth with shallow clone for CliGit, not yet available for JGit */
+        FetchCommand cmd = git.fetch_().from(new URIish(gitRepoURL), refSpecs);
+        if (gitImpl.equals("git")) {
+            // Reduce network transfer by using shallow clone
+            // JGit does not support shallow clone
+            cmd.shallow(true);
         }
-        git.fetch_().from(new URIish(gitRepoURL), refSpecs).execute();
+        cmd.execute();
         git.setRemoteUrl(origin, gitRepoURL);
         ObjectId master = git.getHeadRev(gitRepoURL, "master");
         log().println("Checking out " + master + " from " + gitRepoURL);
@@ -292,11 +308,7 @@ public class CredentialsTest {
     public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
-        if (password != null) {
-            git.addDefaultCredentials(newUsernamePasswordCredential(username, password));
-        } else {
-            git.addDefaultCredentials(newPrivateKeyCredential(username, privateKey));
-        }
+        addCredential(username, password, privateKey);
         CloneCommand cmd = git.clone_().url(gitRepoURL).repositoryName(origin);
         if (gitImpl.equals("git")) {
             // Reduce network transfer by using a local reference repository
@@ -329,4 +341,5 @@ public class CredentialsTest {
      */
     private static final String NOT_JENKINS = System.getProperty("JOB_NAME") == null ? "true" : "false";
     private static final boolean TEST_ALL_CREDENTIALS = Boolean.valueOf(System.getProperty("TEST_ALL_CREDENTIALS", NOT_JENKINS));
+    private static final Pattern URL_MUST_MATCH_PATTERN = Pattern.compile(System.getProperty("URL_MUST_MATCH_PATTERN", ".*"));
 }
