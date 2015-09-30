@@ -2508,7 +2508,7 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("file1 does not exist after merge", w.exists("file1"));
 
         /* Git 1.7.1 does not understand the --orphan argument to checkout.
-         * Stop the test here on older git versions 
+         * Stop the test here on older git versions
          */
         if (!w.cgit().isAtLeastVersion(1, 7, 9, 0)) {
             return;
@@ -3793,8 +3793,8 @@ public abstract class GitAPITestCase extends TestCase {
      *
      * Creates a structure like:
      *
-     * base -> branch a -> branch a-b 
-     *      -> branch c 
+     * base -> branch a -> branch a-b
+     *      -> branch c
      *      -> branch d -> branch d-e -> branch d-e-f
      *
      * Performs a merge of all three branches and checks
