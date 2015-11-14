@@ -2555,6 +2555,77 @@ public abstract class GitAPITestCase extends TestCase {
         assertEquals("Wrong invalid default remote", "origin", w.igit().getDefaultRemote("invalid"));
     }
 
+    public void test_rebase_passes_without_conflict() throws Exception {
+        w.init();
+        w.commitEmpty("init");
+
+        // First commit to master
+        w.touch("master_file", "master1");
+        w.git.add("master_file");
+        w.git.commit("commit-master1");
+
+        // Create a feature branch and make a commit
+        w.git.branch("feature1");
+        w.git.checkout("feature1");
+        w.touch("feature_file", "feature1");
+        w.git.add("feature_file");
+        w.git.commit("commit-feature1");
+
+        // Second commit to master
+        w.git.checkout("master");
+        w.touch("master_file", "master2");
+        w.git.add("master_file");
+        w.git.commit("commit-master2");
+
+        // Rebase feature commit onto master
+        w.git.checkout("feature1");
+        w.git.rebase().setUpstream("master").execute();
+
+        assertThat("Should've rebased feature1 onto master", w.git.revList("feature1").contains(w.git.revParse("master")));
+        assertEquals("HEAD should be on the rebased branch", w.git.revParse("HEAD").name(), w.git.revParse("feature1").name());
+        assertThat("Rebased file should be present in the worktree",w.git.getWorkTree().child("feature_file").exists());
+    }
+
+    public void test_rebase_fails_with_conflict() throws Exception {
+        w.init();
+        w.commitEmpty("init");
+
+        // First commit to master
+        w.touch("file", "master1");
+        w.git.add("file");
+        w.git.commit("commit-master1");
+
+        // Create a feature branch and make a commit
+        w.git.branch("feature1");
+        w.git.checkout("feature1");
+        w.touch("file", "feature1");
+        w.git.add("file");
+        w.git.commit("commit-feature1");
+
+        // Second commit to master
+        w.git.checkout("master");
+        w.touch("file", "master2");
+        w.git.add("file");
+        w.git.commit("commit-master2");
+
+        // Rebase feature commit onto master
+        w.git.checkout("feature1");
+        try {
+            w.git.rebase().setUpstream("master").execute();
+            fail("Rebase did not throw expected GitException");
+        } catch (GitException e) {
+            assertEquals("HEAD not reset to the feature branch.", w.git.revParse("HEAD").name(), w.git.revParse("feature1").name());
+            Status status = new org.eclipse.jgit.api.Git(w.repo()).status().call();
+            assertTrue("Workspace is not clean", status.isClean());
+            assertFalse("Workspace has uncommitted changes", status.hasUncommittedChanges());
+            assertTrue("Workspace has conflicting changes", status.getConflicting().isEmpty());
+            assertTrue("Workspace has missing changes", status.getMissing().isEmpty());
+            assertTrue("Workspace has modified files", status.getModified().isEmpty());
+            assertTrue("Workspace has removed files", status.getRemoved().isEmpty());
+            assertTrue("Workspace has untracked files", status.getUntracked().isEmpty());
+        }
+    }
+
     /**
      * Checks that the ChangelogCommand abort() API does not write
      * output to the destination.  Does not check that the abort() API
