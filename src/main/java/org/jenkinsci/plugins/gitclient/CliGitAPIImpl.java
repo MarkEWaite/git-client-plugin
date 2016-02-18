@@ -1658,6 +1658,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         // Search for git on the PATH, then look near it
         String gitPath = getPathToExe(gitExe);
         if (gitPath != null) {
+            sshexe = getSSHExeFromGitExeParentDir(gitPath.replace("/bin/", "/usr/bin/").replace("\\bin\\", "\\usr\\bin\\"));
+            if (sshexe != null && sshexe.exists()) {
+                return sshexe;
+            }
             // In case we are using msysgit from the cmd directory
             // instead of the bin directory, replace cmd with bin in
             // the path while trying to find ssh.exe.
@@ -1683,7 +1687,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         try {
             w = new PrintWriter(ssh);
             w.println("@echo off");
-            w.println("\"" + sshexe.getAbsolutePath() + "\" -i \"" + key.getAbsolutePath() +"\" -l \"" + user + "\" -o StrictHostKeyChecking=no -o BatchMode=yes %* ");
+            w.println("\"" + sshexe.getAbsolutePath() + "\" -i \"" + key.getAbsolutePath() +"\" -l \"" + user + "\" -o StrictHostKeyChecking=no %* ");
             w.flush();
         } finally {
             if (w != null) {
@@ -1703,7 +1707,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         w.println("  DISPLAY=:123.456");
         w.println("  export DISPLAY");
         w.println("fi");
-        w.println("ssh -i \"" + key.getAbsolutePath() + "\" -l \"" + user + "\" -o StrictHostKeyChecking=no -o BatchMode=yes \"$@\"");
+        w.println("ssh -i \"" + key.getAbsolutePath() + "\" -l \"" + user + "\" -o StrictHostKeyChecking=no \"$@\"");
         w.close();
         ssh.setExecutable(true);
         return ssh;

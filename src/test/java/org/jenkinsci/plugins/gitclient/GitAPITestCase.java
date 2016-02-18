@@ -512,6 +512,9 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
+        /* JGit does not support shallow clone */
+        final String shallow = ".git" + File.separator + "shallow";
+        assertEquals("Shallow file existence: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
     }
 
     public void test_clone_shallow_with_depth() throws IOException, InterruptedException
@@ -522,6 +525,9 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
+        /* JGit does not support shallow clone */
+        final String shallow = ".git" + File.separator + "shallow";
+        assertEquals("Shallow file existence: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
     }
 
     public void test_clone_shared() throws IOException, InterruptedException
@@ -1230,7 +1236,6 @@ public abstract class GitAPITestCase extends TestCase {
 
     }
 
-    @NotImplementedInJGit
     public void test_fetch_shallow() throws Exception {
         w.init();
         w.git.setRemoteUrl("origin", localMirror());
@@ -1239,11 +1244,11 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getRemoteBranches(), "origin/master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
+        /* JGit does not support shallow clone */
         final String shallow = ".git" + File.separator + "shallow";
-        assertTrue("Shallow file not found: " + shallow, w.exists(shallow));
+        assertEquals("Shallow file: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
     }
 
-    @NotImplementedInJGit
     public void test_fetch_shallow_depth() throws Exception {
         w.init();
         w.git.setRemoteUrl("origin", localMirror());
@@ -1252,8 +1257,9 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getRemoteBranches(), "origin/master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
+        /* JGit does not support shallow clone */
         final String shallow = ".git" + File.separator + "shallow";
-        assertTrue("Shallow file not found: " + shallow, w.exists(shallow));
+        assertEquals("Shallow file: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
     }
 
     public void test_fetch_noTags() throws Exception {
