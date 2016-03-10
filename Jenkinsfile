@@ -40,5 +40,4 @@ node {
   stage 'Results'
   step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
   step([$class: 'ArtifactArchiver', artifacts: '**/target/*.*pi', fingerprint: true])
-  step([$class: 'FindBugsPublisher', pattern: 'target/findbugs*.xml'])
 }
