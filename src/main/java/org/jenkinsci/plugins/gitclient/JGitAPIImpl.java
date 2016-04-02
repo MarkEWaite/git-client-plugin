@@ -387,6 +387,9 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         try {
             repo = getRepository();
             RefUpdate refUpdate = repo.updateRef(R_HEADS + branch);
+            if (repo.resolve(ref) == null) {
+                throw new GitException("Could not resolve ref '" + ref + "'");
+            }
             refUpdate.setNewObjectId(repo.resolve(ref));
             switch (refUpdate.forceUpdate()) {
             case NOT_ATTEMPTED:
