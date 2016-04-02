@@ -87,22 +87,6 @@ public class SubmoduleTest {
     }
 
     @Test
-    public void gitClientType() throws Exception {
-        GitClient gitClient = ws.getGitClient();
-        if (gitImplementation.equals("jgit")) {
-            assertTrue("Wrong type for " + gitClient, gitClient instanceof JGitAPIImpl);
-        } else {
-            assertTrue("Wrong type for " + gitClient, gitClient instanceof CliGitAPIImpl);
-        }
-    }
-
-    @Test
-    public void cgit() throws Exception {
-        GitClient gitClient = ws.cgit();
-        assertTrue("Wrong type for " + gitClient, gitClient instanceof CliGitAPIImpl);
-    }
-
-    @Test
     public void localMirror() throws Exception {
         String mirrorName = ws.localMirror();
         File mirrorDir = new File(mirrorName);
