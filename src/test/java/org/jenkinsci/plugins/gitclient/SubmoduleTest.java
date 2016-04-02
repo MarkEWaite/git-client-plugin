@@ -87,13 +87,6 @@ public class SubmoduleTest {
     }
 
     @Test
-    public void localMirror() throws Exception {
-        String mirrorName = ws.localMirror();
-        File mirrorDir = new File(mirrorName);
-        assertTrue("Mirror dir " + mirrorDir + " does not exist", mirrorDir.exists());
-    }
-
-    @Test
     @Ignore("Known to fail, work in progress")
     public void checkoutBranch() throws Exception {
         ws.cloneMirror();
