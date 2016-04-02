@@ -479,7 +479,7 @@ public abstract class GitAPITestCase extends TestCase {
      * otherwise no branch is checked out. That is different than the
      * command line git program, but consistent within the git API.
      */
-    public void test_clone() throws IOException, InterruptedException
+    public void test_clone() throws Exception
     {
         int newTimeout = 7;
         w.git.clone_().timeout(newTimeout).url(localMirror()).repositoryName("origin").execute();
@@ -489,8 +489,22 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
+        assertFalse("Unexpected shallow clone", w.cgit().isShallowRepository());
 
         setExpectedTimeoutWithAdjustedEnd(newTimeout);
+    }
+
+    public void test_checkout_exception() throws Exception {
+        w.git.clone_().url(localMirror()).repositoryName("origin").execute();
+        createRevParseBranch();
+        w.git.checkout("origin/master", "master");
+        final String SHA1 = "feedbeefbeaded";
+        try {
+            w.git.checkout(SHA1, "master");
+            fail("Expected checkout exception not thrown");
+        } catch (GitException ge) {
+            assertEquals("Could not checkout master with start point " + SHA1, ge.getMessage());
+        }
     }
 
     public void test_clone_repositoryName() throws IOException, InterruptedException
@@ -503,7 +517,7 @@ public abstract class GitAPITestCase extends TestCase {
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
     }
 
-    public void test_clone_shallow() throws IOException, InterruptedException
+    public void test_clone_shallow() throws Exception
     {
         w.git.clone_().url(localMirror()).repositoryName("origin").shallow().execute();
         createRevParseBranch(); // Verify JENKINS-32258 is fixed
@@ -513,6 +527,7 @@ public abstract class GitAPITestCase extends TestCase {
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
         /* JGit does not support shallow clone */
+        assertEquals("isShallow?", w.igit() instanceof CliGitAPIImpl, w.cgit().isShallowRepository());
         final String shallow = ".git" + File.separator + "shallow";
         assertEquals("Shallow file existence: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
     }
@@ -1750,6 +1765,19 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("committed-file missing at commit1", w.file("committed-file").exists());
     }
 
+    public void assertFixSubmoduleUrlsThrows() throws InterruptedException {
+        try {
+            w.igit().fixSubmoduleUrls("origin", listener);
+            fail("Expected exception not thrown");
+        } catch (UnsupportedOperationException uoe) {
+            assertTrue("Unsupported operation not on JGit", w.igit() instanceof JGitAPIImpl);
+        } catch (GitException ge) {
+            assertTrue("GitException not on CliGit", w.igit() instanceof CliGitAPIImpl);
+            assertTrue("Wrong message in " + ge.getMessage(), ge.getMessage().startsWith("Could not determine remote"));
+            assertTrue("Wrong remote in " + ge.getMessage(), ge.getMessage().contains("origin"));
+        }
+    }
+
     public void test_addSubmodule() throws Exception {
         String sub1 = "sub1-" + java.util.UUID.randomUUID().toString();
         String readme1 = sub1 + File.separator + "README.md";
@@ -1770,6 +1798,7 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("submodule1 file found after recursive update", w.file(readme1).exists());
 
         w.igit().submoduleSync();
+        assertFixSubmoduleUrlsThrows();
     }
 
 
@@ -1807,6 +1836,7 @@ public abstract class GitAPITestCase extends TestCase {
         // Run submodule update with remote tracking
         w.git.submoduleUpdate(true, true);
         assertTrue("file2 does not exist and should because we updated to the top of the branch (master).", w.exists(subFile));
+        assertFixSubmoduleUrlsThrows();
     }
 
     /* Check JENKINS-23424 - inconsistent handling of modified tracked
@@ -1901,6 +1931,13 @@ public abstract class GitAPITestCase extends TestCase {
         for (String tag : tagNamesSubmodule) {
             assertFalse("Submodule tag " + tag + " in parent " + tagsAfter, tagsAfter.matches("^" + tag + "$"));
         }
+
+        try {
+            w.igit().fixSubmoduleUrls("origin", listener);
+            assertTrue("not CliGit", w.igit() instanceof CliGitAPIImpl);
+        } catch (UnsupportedOperationException uoe) {
+            assertTrue("Unsupported operation not on JGit", w.igit() instanceof JGitAPIImpl);
+        }
     }
 
     public void test_getSubmodules() throws Exception {
@@ -1918,6 +1955,7 @@ public abstract class GitAPITestCase extends TestCase {
 
         assertTrue("modules/firewall does not exist", w.exists("modules/firewall"));
         assertTrue("modules/ntp does not exist", w.exists("modules/ntp"));
+        assertFixSubmoduleUrlsThrows();
     }
 
     public void test_submodule_update() throws Exception {
@@ -1929,6 +1967,7 @@ public abstract class GitAPITestCase extends TestCase {
 
         assertTrue("modules/firewall does not exist", w.exists("modules/firewall"));
         assertTrue("modules/ntp does not exist", w.exists("modules/ntp"));
+        assertFixSubmoduleUrlsThrows();
     }
 
     @NotImplementedInJGit
@@ -2077,6 +2116,7 @@ public abstract class GitAPITestCase extends TestCase {
         w.launchCommand("git", "fetch", localMirror(), "master:t2");
         w.git.checkout("t2");
         assertFalse(w.git.hasGitModules());
+        assertFixSubmoduleUrlsThrows();
     }
 
     private boolean isJava6() {
@@ -3152,6 +3192,32 @@ public abstract class GitAPITestCase extends TestCase {
         assertFalse(paths.contains("src/test/java/org/jenkinsci/plugins/gitclient/JGitAPIImplTest.java"));
         // Previous implementation included other commits, and listed irrelevant changes
         assertFalse(paths.contains("README.md"));
+    }
+
+    public void test_show_revision_for_merge_exclude_files() throws Exception {
+        w = clone(localMirror());
+        ObjectId from = ObjectId.fromString("45e76942914664ee19f31d90e6f2edbfe0d13a46");
+        ObjectId to = ObjectId.fromString("b53374617e85537ec46f86911b5efe3e4e2fa54b");
+        Boolean useRawOutput = false;
+
+        List<String> revisionDetails = w.git.showRevision(from, to, useRawOutput);
+
+        Collection<String> commits = Collections2.filter(revisionDetails, new Predicate<String>() {
+            public boolean apply(String detail) {
+                return detail.startsWith("commit ");
+            }
+        });
+        assertEquals(2, commits.size());
+        assertTrue(commits.contains("commit 4f2964e476776cf59be3e033310f9177bedbf6a8"));
+        assertTrue(commits.contains("commit b53374617e85537ec46f86911b5efe3e4e2fa54b"));
+
+        Collection<String> diffs = Collections2.filter(revisionDetails, new Predicate<String>() {
+            public boolean apply(String detail) {
+                return detail.startsWith(":");
+            }
+        });
+
+        assertTrue(diffs.isEmpty());
     }
 
     private void check_bounded_changelog_sha1(final String sha1Begin, final String sha1End, final String branchName) throws InterruptedException

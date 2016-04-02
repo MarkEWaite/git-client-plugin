@@ -10,7 +10,7 @@
 
   <groupId>org.jenkins-ci.plugins</groupId>
   <artifactId>git-client</artifactId>
-  <version>1.19.6-SNAPSHOT</version>
+  <version>1.19.7-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
   <name>Jenkins Git client plugin</name>
@@ -26,11 +26,6 @@
 
   <developers>
     <developer>
-      <id>ndeloof</id>
-      <name>Nicolas De Loof</name>
-      <email>nicolas.deloof@gmail.com</email>
-    </developer>
-    <developer>
       <id>markewaite</id>
       <name>Mark Waite</name>
       <email>mark.earl.waite@gmail.com</email>
@@ -45,13 +40,13 @@
   </scm>
 
   <properties>
-    <findbugs-maven-plugin.version>3.0.2</findbugs-maven-plugin.version>
+    <findbugs-maven-plugin.version>3.0.3</findbugs-maven-plugin.version>
     <jacoco-maven-plugin.version>0.7.4.201502262128</jacoco-maven-plugin.version>
     <!-- Maven plugin versions provided by parent are outdated. -->
     <!-- Generating site report with "mvn site" fails without these updated versions. -->
     <maven-dependency-plugin.version>2.9</maven-dependency-plugin.version>
     <maven-enforcer-plugin.version>1.4</maven-enforcer-plugin.version>
-    <maven-hpi-plugin.version>1.115</maven-hpi-plugin.version>
+    <maven-hpi-plugin.version>1.116</maven-hpi-plugin.version>
     <maven-project-info-reports-plugin.version>2.7</maven-project-info-reports-plugin.version>
     <maven-release-plugin.version>2.5.2</maven-release-plugin.version>
     <maven-site-plugin.version>3.4</maven-site-plugin.version>
@@ -226,9 +221,9 @@
         <executions>
           <execution>
             <id>run-findbugs</id>
-            <phase>verify</phase> 
+            <phase>verify</phase>
             <goals>
-              <goal>check</goal> 
+              <goal>check</goal>
             </goals>
           </execution>
         </executions>

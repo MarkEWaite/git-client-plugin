@@ -881,18 +881,20 @@ public interface GitClient {
     public List<String> showChangedPaths(ObjectId r) throws GitException, InterruptedException;
 
     /**
-     * Given a Revision, show all files changes similar to git diff --name-only, so that it
-     * can be used to accurately identify changed paths for include/exclude regions.
+     * Given a Revision, show it as if it were an entry from git whatchanged, so that it
+     * can be parsed by GitChangeLogParser.
      *
      * <p>
-     * Changes are computed on the [from..to] range, For merge commit, only actual path changes
-     * are included rather than changes from all parents. This makes this method report
-     * more accurately on path changes from {@link #showRevision()}.
+     * If useRawOutput is true, the '--raw' option will include commit file information to be passed to the
+     * GitChangeLogParser.
      *
      * <p>
-     * If {@code from} is null, this prints paths from just one commit that {@code to} represents.
-     * If {@code from} is null and the {@code to} commit is a merge commit, it will report all path
-     * changes from each parent.
+     * Changes are computed on the [from..to] range. If {@code from} is null, this prints
+     * just one commit that {@code to} represents.
+     *
+     * <p>
+     * For merge commit, this method reports one diff per each parent. This makes this method
+     * behave differently from {@link #changelog()}.
      *
      * @return The git show output, in <tt>raw</tt> format.
      * @param from a {@link org.eclipse.jgit.lib.ObjectId} object.
@@ -901,6 +903,13 @@ public interface GitClient {
      * @throws java.lang.InterruptedException if interrupted.
      */
     List<String> showChangedPaths(ObjectId from, ObjectId to) throws GitException, InterruptedException;
+
+    /**
+     * @param useRawOutput a {java.lang.Boolean} object.
+     * @throws hudson.plugins.git.GitException if underlying git operation fails.
+     * @throws java.lang.InterruptedException if interrupted.
+     */
+    List<String> showRevision(ObjectId from, ObjectId to, Boolean useRawOutput) throws GitException, InterruptedException;
 
     /**
      * Equivalent of "git-describe --tags".

@@ -709,6 +709,10 @@ class RemoteGitImpl implements GitClient, IGitAPI, Serializable {
         return proxy.showChangedPaths(from, to);
     }
 
+    public List<String> showRevision(ObjectId from, ObjectId to, Boolean useRawOutput) throws GitException, InterruptedException {
+        return proxy.showRevision(from, to, useRawOutput);
+    }
+
     /** {@inheritDoc} */
     public boolean hasGitModules(String treeIsh) throws GitException, InterruptedException {
         return getGitAPI().hasGitModules(treeIsh);
