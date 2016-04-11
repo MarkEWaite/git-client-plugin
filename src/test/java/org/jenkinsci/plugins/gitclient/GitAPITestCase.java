@@ -1970,6 +1970,31 @@ public abstract class GitAPITestCase extends TestCase {
     }
 
     @NotImplementedInJGit
+    public void test_submodule_update_force() throws Exception {
+        w.init();
+        w.git.clone_().url(localMirror()).repositoryName("sub2_origin").execute();
+        w.git.checkout().branch("tests/getSubmodules").ref("sub2_origin/tests/getSubmodules").deleteBranchIfExist(true).execute();
+        w.git.submoduleInit();
+        w.git.submoduleUpdate().execute();
+
+        // Check to make sure we have a CHANGELOG file
+        assertTrue("modules/ntp/CHANGELOG does not exist", w.exists("modules/ntp/CHANGELOG"));
+
+        // delete the CHANGELOG file from the submodule
+        w.cmd("git -C modules/ntp rm CHANGELOG");
+
+        // perform a submodule update without force, and ensure that it does
+        // not add the file back
+        w.git.submoduleUpdate().execute();
+        assertFalse("modules/ntp/CHANGELOG exists", w.exists("modules/ntp/CHANGELOG"));
+
+        // perform a forced submodule update and ensure that everything is
+        // rechecked out correctly
+        w.git.submoduleUpdate().force(true).execute();
+        assertTrue("modules/ntp/CHANGELOG does not exist", w.exists("modules/ntp/CHANGELOG"));
+    }
+
+    @NotImplementedInJGit
     public void test_trackingSubmoduleBranches() throws Exception {
         if (! ((CliGitAPIImpl)w.git).isAtLeastVersion(1,8,2,0)) {
             setTimeoutVisibleInCurrentTest(false);
