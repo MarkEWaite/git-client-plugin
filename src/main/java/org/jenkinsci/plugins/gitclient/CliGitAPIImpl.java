@@ -1974,6 +1974,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public boolean deleteBranch;
             public List<String> sparseCheckoutPaths = Collections.emptyList();
             public Integer timeout;
+            public boolean withLFS;
 
             public CheckoutCommand ref(String ref) {
                 this.ref = ref;
@@ -1997,6 +1998,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             public CheckoutCommand timeout(Integer timeout) {
                 this.timeout = timeout;
+                return this;
+            }
+            
+            public CheckoutCommand withLFS() {
+                this.withLFS = true;
                 return this;
             }
 
@@ -2053,6 +2059,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     }
                     args.add(ref);
                     launchCommandIn(args, workspace, environment, timeout);
+                    
+                    if (withLFS) {
+                        final String remote = getDefaultRemote();
+                        final String url = getRemoteUrl(remote);
+                        StandardCredentials cred = credentials.get(url);
+                        if (cred == null) cred = defaultCredentials;
+                        ArgumentListBuilder lfsArgs = new ArgumentListBuilder();
+                        lfsArgs.add("lfs");
+                        lfsArgs.add("pull");
+                        lfsArgs.add(remote);
+                        try {
+                            launchCommandWithCredentials(lfsArgs, workspace, cred, new URIish(url), timeout);
+                        } catch (URISyntaxException e) {
+                            throw new GitException("Invalid URL " + url, e);
+                        }
+                    }
                 } catch (GitException e) {
                     if (Pattern.compile("index\\.lock").matcher(e.getMessage()).find()) {
                         throw new GitLockFailedException("Could not lock repository. Please try again", e);
