@@ -1516,6 +1516,50 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
+    // RSA private key passphrases to test (literal text follows the
+    // double slash and single space)
+    // ----- Start of private key passphrases -----
+    // saint2Coors4kazoo56th4hying2wing
+    // <mark|earl^waite>@gmail.com
+    // Mark&Earl
+    // 1<2
+    // 2>1
+    // :(
+    // :)
+    // mark.earl.waite@gmail.com
+    // x^2
+    // a|b
+    // Mark's
+    // "quoted"
+    // f(x)
+    // git.exe
+    // "git.exe"
+    // x"|date
+    // x|date
+    // ----- End of private key passphrases -----
+    private boolean passphraseUsesWindowsSpecialCharacters(SSHUserPrivateKey sshUser) {
+        final String passphrase = Secret.toString(sshUser.getPassphrase());
+        if (passphrase.contains("&")
+            || passphrase.contains("<")
+            || passphrase.contains(">")
+            || passphrase.contains("<")
+            || passphrase.contains("(")
+            || passphrase.contains(")")
+            || passphrase.contains("@")
+            || passphrase.contains("^")
+            || passphrase.contains("|")
+            || passphrase.contains("'")
+            || passphrase.contains("\"")
+            || passphrase.contains("\\")
+            || passphrase.contains(" ")
+            ) {
+            listener.getLogger().println("plaintext passphrase '" + passphrase + "' contains Windows command processor special character");
+            return true;
+        }
+        listener.getLogger().println("plaintext passphrase '" + passphrase + "' does not contain Windows command processor special character");
+        return false;
+    }
+
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
         File ssh = File.createTempFile("pass", ".bat");
         PrintWriter w = null;
@@ -1523,8 +1567,16 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w = new PrintWriter(ssh);
             // avoid echoing command as part of the password
             w.println("@echo off");
-            // no need for quotes on windows echo -- they will get echoed too
-            w.println("echo " + Secret.toString(sshUser.getPassphrase()));
+            if (passphraseUsesWindowsSpecialCharacters(sshUser)) {
+                // quotes required for windows echo if special
+                // characters in passphrase -- they will not be echoed
+                // per http://ss64.com/nt/syntax-cmd.html
+                w.println("echo \"" + Secret.toString(sshUser.getPassphrase()) + "\"");
+            } else {
+                // no need for quotes on windows echo if no special
+                // characters in passphrase
+                w.println("echo " + Secret.toString(sshUser.getPassphrase()));
+            }
             w.flush();
         } finally {
             if (w != null) {
