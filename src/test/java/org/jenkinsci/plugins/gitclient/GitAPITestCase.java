@@ -3979,6 +3979,6 @@ public abstract class GitAPITestCase extends TestCase {
         w.igit().submoduleSync();
         w.igit().submoduleUpdate(true);
         assertTrue(w.file("submodule" + File.separator + "i_am_submodule").exists());
-        assertTrue(w.file("submodule" + File.separator + "subsubmodule" + File.separator + "i_am_subsubmodule2").exists());
+        assertTrue(w.file("submodule" + File.separator + "subsubmodule" + File.separator + "i_am_subsubmodule1").exists());
     }
 }
