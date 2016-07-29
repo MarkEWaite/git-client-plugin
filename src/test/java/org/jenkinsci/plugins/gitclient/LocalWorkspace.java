@@ -146,7 +146,7 @@ public class LocalWorkspace {
         /* Should use specific implementation rather than command line git */
         launchCommand("git", "clone", localMirror(), repoPath());
     }
-    
+
     private String getSystemProperty(String... keyVariants) {
         for (String key : keyVariants) {
             String value = System.getProperty(key);
