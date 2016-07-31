@@ -21,7 +21,7 @@ public interface MergeCommand extends GitCommand {
 
     /**
      * Add to the list of revisions to merge.  Most interesting when performing
-     * a merge of multiple branches simultaneously ("octopus" merge).  
+     * a merge of multiple branches simultaneously ("octopus" merge).
      * Use setRevisionToMerge for the first revision to merge.
      *
      * @param rev a {@link org.eclipse.jgit.lib.ObjectId} object.
