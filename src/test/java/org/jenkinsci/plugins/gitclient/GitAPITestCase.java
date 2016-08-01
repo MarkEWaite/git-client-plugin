@@ -972,7 +972,9 @@ public abstract class GitAPITestCase extends TestCase {
             String expectedSubString = "Missing commit " + bareCommit5.name();
             assertTrue("Wrong message :" + je.getMessage(), je.getMessage().contains(expectedSubString));
         } catch (GitException ge) {
-            assertTrue("Wrong message :" + ge.getMessage(), ge.getMessage().contains("Could not merge"));
+            assertTrue("Wrong message :" + ge.getMessage(),
+                       ge.getMessage().contains("Could not merge") ||
+                       ge.getMessage().contains("not something we can merge"));
             assertTrue("Wrong message :" + ge.getMessage(), ge.getMessage().contains(bareCommit5.name()));
         }
         /* Assert that expected change is in repo after merge.  With
@@ -3817,6 +3819,7 @@ public abstract class GitAPITestCase extends TestCase {
             SystemUtils.IS_OS_WINDOWS &&
             w.git instanceof CliGitAPIImpl &&
             w.cgit().isAtLeastVersion(1, 9, 0, 0) &&
+            !w.cgit().isAtLeastVersion(2, 8, 0, 0) &&
             (new File(fullName)).getAbsolutePath().length() > MAX_PATH;
 
         try {
