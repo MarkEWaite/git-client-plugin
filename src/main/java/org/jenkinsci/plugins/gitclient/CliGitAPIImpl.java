@@ -1534,6 +1534,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     // f(x)
     // git.exe
     // "git.exe"
+    // "git.exe's"
+    // 'git.exe"s'
     // x"|date
     // x|date
     // ----- End of private key passphrases -----
