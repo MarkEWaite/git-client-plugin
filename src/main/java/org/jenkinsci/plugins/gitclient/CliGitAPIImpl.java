@@ -1520,7 +1520,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     // double slash and single space)
     // ----- Start of private key passphrases -----
     // saint2Coors4kazoo56th4hying2wing
-    // <mark|earl^waite>@gmail.com
+    // Barry Gordon<barry.gordon@gmail.com>
     // Mark&Earl
     // 1<2
     // 2>1
@@ -1541,19 +1541,18 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     // ----- End of private key passphrases -----
     private boolean passphraseUsesWindowsSpecialCharacters(SSHUserPrivateKey sshUser) {
         final String passphrase = Secret.toString(sshUser.getPassphrase());
-        if (passphrase.contains("&")
-            || passphrase.contains("<")
-            || passphrase.contains(">")
-            || passphrase.contains("<")
+        if (   passphrase.contains(" ")
+            || passphrase.contains("&")
+            || passphrase.contains("'")
             || passphrase.contains("(")
             || passphrase.contains(")")
+            || passphrase.contains("<")
+            || passphrase.contains(">")
             || passphrase.contains("@")
-            || passphrase.contains("^")
-            || passphrase.contains("|")
-            || passphrase.contains("'")
             || passphrase.contains("\"")
             || passphrase.contains("\\")
-            || passphrase.contains(" ")
+            || passphrase.contains("^")
+            || passphrase.contains("|")
             ) {
             listener.getLogger().println("plaintext passphrase '" + passphrase + "' contains Windows command processor special character");
             return true;
