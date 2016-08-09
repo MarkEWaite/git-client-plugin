@@ -1563,21 +1563,24 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
         File ssh = File.createTempFile("pass", ".bat");
+        File passphrase = File.createTempFile("phrase", ".txt");
         PrintWriter w = null;
         try {
-            w = new PrintWriter(ssh);
+            w = new PrintWriter(passphrase, "UTF-8");
+            w.println(Secret.toString(sshUser.getPassphrase()));
+            w.flush();
+        } finally {
+            if (w != null) {
+                w.close();
+            }
+        }
+        w = null;
+        try {
+            w = new PrintWriter(ssh, "UTF-8");
             // avoid echoing command as part of the password
             w.println("@echo off");
-            if (passphraseUsesWindowsSpecialCharacters(sshUser)) {
-                // quotes required for windows echo if special
-                // characters in passphrase -- they will not be echoed
-                // per http://ss64.com/nt/syntax-cmd.html
-                w.println("echo \"" + Secret.toString(sshUser.getPassphrase()) + "\"");
-            } else {
-                // no need for quotes on windows echo if no special
-                // characters in passphrase
-                w.println("echo " + Secret.toString(sshUser.getPassphrase()));
-            }
+            w.println("type " + passphrase.getAbsolutePath());
+            w.println("del /F/Q " + passphrase.getAbsolutePath());
             w.flush();
         } finally {
             if (w != null) {
