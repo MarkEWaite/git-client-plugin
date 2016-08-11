@@ -1516,6 +1516,48 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
+    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
+        File ssh = workspace.createTempFile("pass", ".bat");
+        listener.getLogger().println("Wrote bat to '" + ssh.getAbsolutePath() + "'");
+        File passphrase = writePassphraseToFile(sshUser);
+        PrintWriter w = null;
+        try {
+            w = new PrintWriter(ssh, "UTF-8");
+            // avoid echoing command as part of the password
+            w.println("@echo off");
+            w.println("type " + passphrase.getAbsolutePath());
+            w.println("del /F/Q " + passphrase.getAbsolutePath());
+            w.flush();
+        } finally {
+            if (w != null) {
+                w.close();
+            }
+        }
+        ssh.setExecutable(true);
+        return ssh;
+    }
+
+    private File createUnixSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
+        File ssh = workspace.createTempFile("pass", ".sh");
+        listener.getLogger().println("Wrote sh script to '" + ssh.getAbsolutePath() + "'");
+        File passphrase = writePassphraseToFile(sshUser);
+        PrintWriter w = null;
+        try {
+            w = new PrintWriter(ssh, "UTF-8");
+            // avoid echoing command as part of the password
+            w.println("#!/bin/sh");
+            w.println("cat " + passphrase.getAbsolutePath());
+            w.println("rm -f " + passphrase.getAbsolutePath());
+            w.flush();
+        } finally {
+            if (w != null) {
+                w.close();
+            }
+        }
+        ssh.setExecutable(true);
+        return ssh;
+    }
+
     // RSA private key passphrases to test (literal text follows the
     // double slash and single space)
     // ----- Start of private key passphrases -----
@@ -1539,34 +1581,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     // x"|date
     // x|date
     // ----- End of private key passphrases -----
-    private boolean passphraseUsesWindowsSpecialCharacters(SSHUserPrivateKey sshUser) {
-        final String passphrase = Secret.toString(sshUser.getPassphrase());
-        if (   passphrase.contains(" ")
-            || passphrase.contains("&")
-            || passphrase.contains("'")
-            || passphrase.contains("(")
-            || passphrase.contains(")")
-            || passphrase.contains("<")
-            || passphrase.contains(">")
-            || passphrase.contains("@")
-            || passphrase.contains("\"")
-            || passphrase.contains("\\")
-            || passphrase.contains("^")
-            || passphrase.contains("|")
-            ) {
-            listener.getLogger().println("plaintext passphrase '" + passphrase + "' contains Windows command processor special character");
-            return true;
-        }
-        listener.getLogger().println("plaintext passphrase '" + passphrase + "' does not contain Windows command processor special character");
-        return false;
-    }
-
-    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = File.createTempFile("pass", ".bat");
-        File passphrase = File.createTempFile("phrase", ".txt");
+    private File writePassphraseToFile(SSHUserPrivateKey sshUser) throws IOException {
+        File passphraseFile = workspace.createTempFile("phrase", ".txt");
+        listener.getLogger().println("Wrote passphrase to '" + passphraseFile.getAbsolutePath() + "'");
         PrintWriter w = null;
         try {
-            w = new PrintWriter(passphrase, "UTF-8");
+            w = new PrintWriter(passphraseFile, "UTF-8");
             w.println(Secret.toString(sshUser.getPassphrase()));
             w.flush();
         } finally {
@@ -1574,31 +1594,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 w.close();
             }
         }
-        w = null;
-        try {
-            w = new PrintWriter(ssh, "UTF-8");
-            // avoid echoing command as part of the password
-            w.println("@echo off");
-            w.println("type " + passphrase.getAbsolutePath());
-            w.println("del /F/Q " + passphrase.getAbsolutePath());
-            w.flush();
-        } finally {
-            if (w != null) {
-                w.close();
-            }
-        }
-        ssh.setExecutable(true);
-        return ssh;
-    }
-
-    private File createUnixSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = File.createTempFile("pass", ".sh");
-        PrintWriter w = new PrintWriter(ssh);
-        w.println("#!/bin/sh");
-        w.println("echo \"" + Secret.toString(sshUser.getPassphrase()) + "\"");
-        w.close();
-        ssh.setExecutable(true);
-        return ssh;
+        return passphraseFile;
     }
 
     private String getPathToExe(String userGitExe) {
