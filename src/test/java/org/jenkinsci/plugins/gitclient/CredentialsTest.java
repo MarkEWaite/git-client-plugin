@@ -59,6 +59,7 @@ public class CredentialsTest {
     private final String username;
     private final String password;
     private final File privateKey;
+    private final String passphrase;
     private final String fileToCheck;
     private final Boolean submodules;
     private final Boolean useParentCreds;
@@ -89,10 +90,11 @@ public class CredentialsTest {
         return StreamTaskListener.fromStdout().getLogger();
     }
 
-    public CredentialsTest(String gitImpl, String gitRepoUrl, String username, String password, File privateKey, String fileToCheck, Boolean submodules, Boolean useParentCreds) {
+    public CredentialsTest(String gitImpl, String gitRepoUrl, String username, String password, File privateKey, String passphrase, String fileToCheck, Boolean submodules, Boolean useParentCreds) {
         this.gitImpl = gitImpl;
         this.gitRepoURL = gitRepoUrl;
         this.privateKey = privateKey;
+        this.passphrase = passphrase;
         this.username = username;
         this.password = password;
         this.fileToCheck = fileToCheck;
@@ -158,9 +160,11 @@ public class CredentialsTest {
         String id = "private-key-" + privateKey.getPath();
         String privateKeyData = Files.toString(privateKey, Charset.forName("UTF-8"));
         BasicSSHUserPrivateKey.PrivateKeySource privateKeySource = new BasicSSHUserPrivateKey.DirectEntryPrivateKeySource(privateKeyData);
-        String passphrase = null;
         String description = "private key from " + privateKey.getPath();
-        return new BasicSSHUserPrivateKey(scope, id, username, privateKeySource, passphrase, description);
+        if (this.passphrase != null) {
+            description = description + " passphrase '" + this.passphrase + "'";
+        }
+        return new BasicSSHUserPrivateKey(scope, id, username, privateKeySource, this.passphrase, description);
     }
 
     private StandardUsernamePasswordCredentials newUsernamePasswordCredential(String username, String password) {
@@ -190,7 +194,7 @@ public class CredentialsTest {
                 String url = "https://github.com/jenkinsci/git-client-plugin.git";
                 /* Add URL if it matches the pattern */
                 if (URL_MUST_MATCH_PATTERN.matcher(url).matches()) {
-                    Object[] masterRepo = {implementation, url, username, null, defaultPrivateKey, "README.md", false, false};
+                    Object[] masterRepo = {implementation, url, username, null, defaultPrivateKey, null, "README.md", false, false};
                     repos.add(masterRepo);
                 }
             }
@@ -250,6 +254,11 @@ public class CredentialsTest {
                         }
                     }
 
+                    String passphrase = (String) entry.get("passphrase");
+                    if (passphrase != null && passphrase.trim().isEmpty()) {
+                        passphrase = null;
+                    }
+
                     if (repoURL == null) {
                         System.out.println("No repository URL provided.");
                         continue;
@@ -257,7 +266,7 @@ public class CredentialsTest {
 
                     /* Add URL if it matches the pattern */
                     if (URL_MUST_MATCH_PATTERN.matcher(repoURL).matches()) {
-                        Object[] repo = {implementation, repoURL, username, password, privateKey, fileToCheck, submodules, useParentCreds};
+                        Object[] repo = {implementation, repoURL, username, password, privateKey, passphrase, fileToCheck, submodules, useParentCreds};
                         repos.add(repo);
                     }
                 }
@@ -296,16 +305,16 @@ public class CredentialsTest {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
         List<RefSpec> refSpecs = new ArrayList<RefSpec>();
-        refSpecs.add(new RefSpec("+refs/heads/*:refs/remotes/" + origin + "/*"));
+        refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/" + origin + "/master"));
         git.init_().workspace(repo.getAbsolutePath()).execute();
         assertFalse("file " + fileToCheck + " in " + repo + ", has " + listDir(repo), clonedFile.exists());
         addCredential(username, password, privateKey);
         /* Save some bandwidth with shallow clone for CliGit, not yet available for JGit */
-        FetchCommand cmd = git.fetch_().from(new URIish(gitRepoURL), refSpecs);
+        FetchCommand cmd = git.fetch_().from(new URIish(gitRepoURL), refSpecs).tags(false);
         if (gitImpl.equals("git")) {
             // Reduce network transfer by using shallow clone
             // JGit does not support shallow clone
-            cmd.shallow(true);
+            cmd.shallow(true).depth(1);
         }
         cmd.execute();
         git.setRemoteUrl(origin, gitRepoURL);
@@ -323,12 +332,15 @@ public class CredentialsTest {
     public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
+        List<RefSpec> refSpecs = new ArrayList<RefSpec>();
+        refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/" + origin + "/master"));
         addCredential(username, password, privateKey);
-        CloneCommand cmd = git.clone_().url(gitRepoURL).repositoryName(origin);
+        CloneCommand cmd = git.clone_().url(gitRepoURL).repositoryName(origin).refspecs(refSpecs);
         if (gitImpl.equals("git")) {
-            // Reduce network transfer by using a local reference repository
-            // JGit does not support reference repositories
-            cmd.reference(currDir.getAbsolutePath());
+            // Reduce network transfer
+            // Use a reference repository, JGit does not support reference repositories
+            // Use shallow clone, JGit does not support shallow clone
+            cmd.shallow().depth(1).reference(currDir.getAbsolutePath());
         }
         cmd.execute();
         ObjectId master = git.getHeadRev(gitRepoURL, "master");
