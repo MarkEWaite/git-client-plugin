@@ -179,7 +179,7 @@ public class CredentialsTest {
         return cli.isAtLeastVersion(1, 7, 9, 0);
     }
 
-    @Parameterized.Parameters(name = "{2}-{1}-{0}")
+    @Parameterized.Parameters(name = "{2}-{1}-{0}-{5}")
     public static Collection gitRepoUrls() throws MalformedURLException, FileNotFoundException, IOException, InterruptedException, ParseException {
         List<Object[]> repos = new ArrayList<Object[]>();
         String[] implementations = isCredentialsSupported() ? new String[]{"git", "jgit"} : new String[]{"jgit"};
