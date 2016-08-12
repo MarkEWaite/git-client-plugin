@@ -1561,16 +1561,16 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     // saint2Coors4kazoo56th4hying2wing
     // Barry Gordon<barry.gordon@gmail.com>
     // Mark&Earl
-    // 1<2
-    // 2>1
-    // :(
-    // :)
+    // 123<456
+    // 987>654
+    // :(frown
+    // :)smile
     // mark.earl.waite@gmail.com
-    // x^2
-    // a|b
+    // x^2+x**3
+    // a|b|c|d
     // Mark's
     // "quoted"
-    // f(x)
+    // f(abcx)
     // git.exe
     // "git.exe"
     // "git.exe's"
