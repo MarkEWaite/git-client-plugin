@@ -1351,7 +1351,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
         File key = null;
         File ssh = null;
-        File pass = null;
+        File passCmd = null;
+        File passphrase = null;
         File store = null;
         EnvVars env = environment;
         boolean deleteWorkDir = false;
@@ -1361,17 +1362,18 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 listener.getLogger().println("using GIT_SSH to set credentials " + sshUser.getDescription());
 
                 key = createSshKeyFile(key, sshUser);
+                passphrase = writePassphraseToFile(sshUser);
                 if (launcher.isUnix()) {
                     ssh =  createUnixGitSSH(key, sshUser.getUsername());
-                    pass =  createUnixSshAskpass(sshUser);
+                    passCmd =  createUnixSshAskpass(sshUser, passphrase);
                 } else {
                     ssh =  createWindowsGitSSH(key, sshUser.getUsername());
-                    pass =  createWindowsSshAskpass(sshUser);
+                    passCmd =  createWindowsSshAskpass(sshUser, passphrase);
                 }
 
                 env = new EnvVars(env);
                 env.put("GIT_SSH", ssh.getAbsolutePath());
-                env.put("SSH_ASKPASS", pass.getAbsolutePath());
+                env.put("SSH_ASKPASS", passCmd.getAbsolutePath());
 
                 // supply a dummy value for DISPLAY if not already present
                 // or else ssh will not invoke SSH_ASKPASS
@@ -1467,7 +1469,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         } catch (IOException e) {
             throw new GitException("Failed to setup credentials", e);
         } finally {
-            deleteTempFile(pass);
+            deleteTempFile(passCmd);
+            deleteTempFile(passphrase);
             deleteTempFile(key);
             deleteTempFile(ssh);
             deleteTempFile(store);
@@ -1516,17 +1519,15 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
+    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, File passphrase) throws IOException {
         File ssh = workspace.createTempFile("pass", ".bat");
         listener.getLogger().println("Wrote bat to '" + ssh.getAbsolutePath() + "'");
-        File passphrase = writePassphraseToFile(sshUser);
         PrintWriter w = null;
         try {
             w = new PrintWriter(ssh, "UTF-8");
             // avoid echoing command as part of the password
             w.println("@echo off");
             w.println("type " + passphrase.getAbsolutePath());
-            w.println("del /F/Q " + passphrase.getAbsolutePath());
             w.flush();
         } finally {
             if (w != null) {
@@ -1537,17 +1538,15 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return ssh;
     }
 
-    private File createUnixSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
+    private File createUnixSshAskpass(SSHUserPrivateKey sshUser, File passphrase) throws IOException {
         File ssh = workspace.createTempFile("pass", ".sh");
         listener.getLogger().println("Wrote sh script to '" + ssh.getAbsolutePath() + "'");
-        File passphrase = writePassphraseToFile(sshUser);
         PrintWriter w = null;
         try {
             w = new PrintWriter(ssh, "UTF-8");
             // avoid echoing command as part of the password
             w.println("#!/bin/sh");
             w.println("cat " + passphrase.getAbsolutePath());
-            w.println("rm -f " + passphrase.getAbsolutePath());
             w.flush();
         } finally {
             if (w != null) {
