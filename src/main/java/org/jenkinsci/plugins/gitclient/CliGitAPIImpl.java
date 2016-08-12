@@ -1520,8 +1520,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, File passphrase) throws IOException {
-        File ssh = workspace.createTempFile("pass", ".bat");
-        listener.getLogger().println("Wrote bat to '" + ssh.getAbsolutePath() + "'");
+        File ssh = File.createTempFile("pass", ".bat");
         PrintWriter w = null;
         try {
             w = new PrintWriter(ssh, "UTF-8");
@@ -1539,8 +1538,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser, File passphrase) throws IOException {
-        File ssh = workspace.createTempFile("pass", ".sh");
-        listener.getLogger().println("Wrote sh script to '" + ssh.getAbsolutePath() + "'");
+        File ssh = File.createTempFile("pass", ".sh");
         PrintWriter w = null;
         try {
             w = new PrintWriter(ssh, "UTF-8");
@@ -1582,7 +1580,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     // ----- End of private key passphrases -----
     private File writePassphraseToFile(SSHUserPrivateKey sshUser) throws IOException {
         File passphraseFile = workspace.createTempFile("phrase", ".txt");
-        listener.getLogger().println("Wrote passphrase to '" + passphraseFile.getAbsolutePath() + "'");
         PrintWriter w = null;
         try {
             w = new PrintWriter(passphraseFile, "UTF-8");
