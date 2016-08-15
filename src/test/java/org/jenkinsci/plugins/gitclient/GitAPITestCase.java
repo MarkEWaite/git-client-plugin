@@ -71,6 +71,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.Lists;
+import java.util.Iterator;
+import java.util.Random;
 
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
@@ -89,9 +91,60 @@ public abstract class GitAPITestCase extends TestCase {
     private static final String SRC_DIR = (new File(".")).getAbsolutePath();
     private String revParseBranchName = null;
 
+    private int checkoutTimeout = -1;
+    private int cloneTimeout = -1;
+    private int fetchTimeout = -1;
+    private int submoduleUpdateTimeout = -1;
+    private final Random random = new Random();
+
     private void createRevParseBranch() throws GitException, InterruptedException {
         revParseBranchName = "rev-parse-branch-" + UUID.randomUUID().toString();
         w.git.checkout("origin/master", revParseBranchName);
+    }
+
+    private void assertCheckoutTimeout() {
+        if (checkoutTimeout > 0) {
+            assertKeywordTimeout("checkout", checkoutTimeout);
+        }
+    }
+
+    private void assertCloneTimeout() {
+        if (cloneTimeout > 0) {
+            // clone_() uses "git fetch" internally, not "git clone"
+            assertKeywordTimeout("fetch", cloneTimeout);
+        }
+    }
+
+    private void assertFetchTimeout() {
+        if (fetchTimeout > 0) {
+            assertKeywordTimeout("fetch", fetchTimeout);
+        }
+    }
+
+    private void assertSubmoduleUpdateTimeout() {
+        if (submoduleUpdateTimeout > 0) {
+            assertKeywordTimeout("update", submoduleUpdateTimeout);
+        }
+    }
+
+    private void assertKeywordTimeout(final String keyword, int expectedTimeout) {
+        List<String> messages = handler.getMessages();
+        List<String> keywordMessages = new ArrayList<String>();
+        List<String> keywordTimeoutMessages = new ArrayList<String>();
+        final String messageRegEx = ".*\\bgit\\b" // command line git
+                + ".*[^.]" // any string not ending in literal "." (don't match remote.origin.fetch)
+                + "\\b" + keyword + "\\b.*"; // the keyword
+        final String timeoutRegEx = messageRegEx
+                + "\\btimeout\\b=\\b" + expectedTimeout + "\\b.*"; // timeout=<value>
+        for (String message : messages) {
+            if (message.matches(messageRegEx)) {
+                keywordMessages.add(message);
+            }
+            if (message.matches(timeoutRegEx)) {
+                keywordTimeoutMessages.add(message);
+            }
+        }
+        assertEquals(keywordMessages, keywordTimeoutMessages);
     }
 
     /**
@@ -304,24 +357,14 @@ public abstract class GitAPITestCase extends TestCase {
         timeoutVisibleInCurrentTest = visible;
     }
 
-    /**
-     * Array of integer values of the timeouts expected to be passed
-     * to launchCommandIn() during a single test.  Simplest to use if
-     * the first or the last call in a test is the only call which
-     * uses a timeout, then the expectedTimeouts array can be
-     * initialized with default values in all the other entries.
-     */
-    private List<Integer> expectedTimeouts = null;
-
-    protected void setExpectedTimeouts(List<Integer> timeouts) {
-        expectedTimeouts = timeouts;
-    }
-
     @Override
     protected void setUp() throws Exception {
         revParseBranchName = null;
         setTimeoutVisibleInCurrentTest(true);
-        expectedTimeouts = null;
+        checkoutTimeout = -1;
+        cloneTimeout = -1;
+        fetchTimeout = -1;
+        submoduleUpdateTimeout = -1;
         Logger logger = Logger.getLogger(this.getClass().getPackage().getName() + "-" + logCount++);
         handler = new LogHandler();
         handler.setLevel(Level.ALL);
@@ -371,26 +414,15 @@ public abstract class GitAPITestCase extends TestCase {
      * checks that the branch name is not mentioned in a call to
      * git rev-parse.
      */
-    private void checkRevParseCalls(String branchName) {
+    private void assertRevParseCalls(String branchName) {
+        if (revParseBranchName == null) {
+            return;
+        }
         String messages = StringUtils.join(handler.getMessages(), ";");
         // Linux uses rev-parse without quotes
         assertFalse("git rev-parse called: " + messages, handler.containsMessageSubstring("rev-parse " + branchName));
         // Windows quotes the rev-parse argument
         assertFalse("git rev-parse called: " + messages, handler.containsMessageSubstring("rev-parse \"" + branchName));
-    }
-
-    private void checkTimeout() {
-        List<Integer> timeouts = handler.getTimeouts();
-        if (expectedTimeouts == null) {
-            expectedTimeouts = new ArrayList<Integer>();
-            for (int i = 0; i < timeouts.size(); i++) {
-                expectedTimeouts.add(i, CliGitAPIImpl.TIMEOUT);
-            }
-        } else {
-            assertEquals("Wrong timeout count", expectedTimeouts.size(), timeouts.size());
-            timeouts = expectedTimeouts;
-        }
-        assertEquals("Wrong timeout", expectedTimeouts, timeouts);
     }
 
     protected abstract GitClient setupGitAPI(File ws) throws Exception;
@@ -405,12 +437,11 @@ public abstract class GitAPITestCase extends TestCase {
         try {
             String messages = StringUtils.join(handler.getMessages(), ";");
             assertTrue("Logging not started: " + messages, handler.containsMessageSubstring(LOGGING_STARTED));
-            if (getTimeoutVisibleInCurrentTest()) {
-                checkTimeout();
-            }
-            if (revParseBranchName != null) {
-                checkRevParseCalls(revParseBranchName);
-            }
+            assertCheckoutTimeout();
+            assertCloneTimeout();
+            assertFetchTimeout();
+            assertSubmoduleUpdateTimeout();
+            assertRevParseCalls(revParseBranchName);
         } finally {
             handler.close();
         }
@@ -457,24 +488,6 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("Wrong committer in " + revision, revision.get(3).startsWith("committer " + committerName + " <" + committerEmail + "> "));
     }
 
-    private void setExpectedTimeoutWithAdjustedEnd(final int newTimeout) {
-        setExpectedTimeoutWithAdjustedEnd(newTimeout, 1);
-    }
-
-    private void setExpectedTimeoutWithAdjustedEnd(final int newTimeout, int adjustmentCount) {
-        if (getTimeoutVisibleInCurrentTest()) {
-            int size = handler.getTimeouts().size();
-            List<Integer> expected = new ArrayList<Integer>(size);
-            for (int i = 0; i < size; i++) {
-                expected.add(i, CliGitAPIImpl.TIMEOUT);
-            }
-            for (int i = 0; i < adjustmentCount; i++) {
-                expected.set(size - i - 1, newTimeout);
-            }
-            setExpectedTimeouts(expected);
-        }
-    }
-
     /** Clone arguments include:
      *   repositoryName(String) - if omitted, CliGit does not set a remote repo name
      *   shallow() - no relevant assertion of success or failure of this argument
@@ -487,8 +500,8 @@ public abstract class GitAPITestCase extends TestCase {
      */
     public void test_clone() throws Exception
     {
-        int newTimeout = 7;
-        w.git.clone_().timeout(newTimeout).url(localMirror()).repositoryName("origin").execute();
+        cloneTimeout = 1 + random.nextInt(60 * 24);
+        w.git.clone_().timeout(cloneTimeout).url(localMirror()).repositoryName("origin").execute();
         createRevParseBranch(); // Verify JENKINS-32258 is fixed
         w.git.checkout("origin/master", "master");
         check_remote_url("origin");
@@ -496,8 +509,6 @@ public abstract class GitAPITestCase extends TestCase {
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
         assertFalse("Unexpected shallow clone", w.cgit().isShallowRepository());
-
-        setExpectedTimeoutWithAdjustedEnd(newTimeout);
     }
 
     public void test_checkout_exception() throws Exception {
@@ -1139,11 +1150,15 @@ public abstract class GitAPITestCase extends TestCase {
         newArea.git.prune(new RemoteConfig(new Config(), "origin"));
 
         /* Fetch should succeed */
-        /* Adjusted timeout will be logged, should not change test results */
-        final int newTimeout = 3;
-        newArea.git.fetch_().timeout(newTimeout).from(new URIish(bare.repo.toString()), refSpecs).execute();
+        newArea.git.fetch_().from(new URIish(bare.repo.toString()), refSpecs).execute();
+    }
 
-        setExpectedTimeoutWithAdjustedEnd(newTimeout);
+    public void test_fetch_timeout() throws Exception {
+        w.init();
+        w.git.setRemoteUrl("origin", localMirror());
+        List<RefSpec> refspecs = Collections.singletonList(new RefSpec("refs/heads/*:refs/remotes/origin/*"));
+        fetchTimeout = 1 + random.nextInt(24 * 60);
+        w.git.fetch_().from(new URIish("origin"), refspecs).timeout(fetchTimeout).execute();
     }
 
     /**
@@ -2193,7 +2208,8 @@ public abstract class GitAPITestCase extends TestCase {
     @Bug(8122)
     public void test_submodule_tags_not_fetched_into_parent() throws Exception {
         w.git.clone_().url(localMirror()).repositoryName("origin").execute();
-        w.git.checkout("origin/master", "master");
+        checkoutTimeout = 1 + random.nextInt(60 * 24);
+        w.git.checkout().ref("origin/master").branch("master").timeout(checkoutTimeout).execute();
 
         String tagsBefore = w.cmd("git tag");
         Set<String> tagNamesBefore = w.git.getTagNames(null);
@@ -2201,7 +2217,7 @@ public abstract class GitAPITestCase extends TestCase {
             assertTrue(tag + " not in " + tagsBefore, tagsBefore.contains(tag));
         }
 
-        w.git.checkout().branch("tests/getSubmodules").ref("origin/tests/getSubmodules").execute();
+        w.git.checkout().branch("tests/getSubmodules").ref("origin/tests/getSubmodules").timeout(checkoutTimeout).execute();
         w.git.submoduleUpdate().recursive(true).execute();
 
         String tagsAfter = w.cmd("git tag");
@@ -2303,22 +2319,20 @@ public abstract class GitAPITestCase extends TestCase {
         assertFalse("file3 exists and should not because not on 'branch2'", w.exists(subFile3));
 
         // Switch to branch1
-        w.git.submoduleUpdate().remoteTracking(true).useBranch(submodDir, "branch1").execute();
+        submoduleUpdateTimeout = 1 + random.nextInt(60 * 24);
+        w.git.submoduleUpdate().remoteTracking(true).useBranch(submodDir, "branch1").timeout(submoduleUpdateTimeout).execute();
         assertTrue("file2 does not exist and should because on branch1", w.exists(subFile2));
         assertFalse("file3 exists and should not because not on 'branch2'", w.exists(subFile3));
 
         // Switch to branch2
-        w.git.submoduleUpdate().remoteTracking(true).useBranch(submodDir, "branch2").execute();
+        w.git.submoduleUpdate().remoteTracking(true).useBranch(submodDir, "branch2").timeout(submoduleUpdateTimeout).execute();
         assertFalse("file2 exists and should not because not on 'branch1'", w.exists(subFile2));
         assertTrue("file3 does not exist and should because on branch2", w.exists(subFile3));
 
         // Switch to master
-        int newTimeout = 6;
-        w.git.submoduleUpdate().remoteTracking(true).useBranch(submodDir, "master").timeout(newTimeout).execute();
+        w.git.submoduleUpdate().remoteTracking(true).useBranch(submodDir, "master").timeout(submoduleUpdateTimeout).execute();
         assertFalse("file2 exists and should not because not on 'branch1'", w.exists(subFile2));
         assertFalse("file3 exists and should not because not on 'branch2'", w.exists(subFile3));
-
-        setExpectedTimeoutWithAdjustedEnd(newTimeout, 2);
     }
 
     @NotImplementedInJGit
@@ -2347,35 +2361,33 @@ public abstract class GitAPITestCase extends TestCase {
         WorkingArea workingArea = new WorkingArea();
         workingArea.git.clone_().url(w.repoPath()).execute();
 
-        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Lists.newArrayList("dir1")).execute();
+        checkoutTimeout = 1 + random.nextInt(60 * 24);
+        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Lists.newArrayList("dir1")).timeout(checkoutTimeout).execute();
         assertTrue(workingArea.exists("dir1"));
         assertFalse(workingArea.exists("dir2"));
         assertFalse(workingArea.exists("dir3"));
 
-        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Lists.newArrayList("dir2")).execute();
+        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Lists.newArrayList("dir2")).timeout(checkoutTimeout).execute();
         assertFalse(workingArea.exists("dir1"));
         assertTrue(workingArea.exists("dir2"));
         assertFalse(workingArea.exists("dir3"));
 
-        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Lists.newArrayList("dir1", "dir2")).execute();
+        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Lists.newArrayList("dir1", "dir2")).timeout(checkoutTimeout).execute();
         assertTrue(workingArea.exists("dir1"));
         assertTrue(workingArea.exists("dir2"));
         assertFalse(workingArea.exists("dir3"));
 
-        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Collections.<String>emptyList()).execute();
+        workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(Collections.<String>emptyList()).timeout(checkoutTimeout).execute();
         assertTrue(workingArea.exists("dir1"));
         assertTrue(workingArea.exists("dir2"));
         assertTrue(workingArea.exists("dir3"));
 
-        int newTimeout = 3; /* Check that checkout timeout is honored */
         workingArea.git.checkout().ref("origin/master").branch("master").deleteBranchIfExist(true).sparseCheckoutPaths(null)
-            .timeout(newTimeout)
+            .timeout(checkoutTimeout)
             .execute();
         assertTrue(workingArea.exists("dir1"));
         assertTrue(workingArea.exists("dir2"));
         assertTrue(workingArea.exists("dir3"));
-
-        setExpectedTimeoutWithAdjustedEnd(newTimeout);
     }
 
     public void test_clone_no_checkout() throws Exception {
@@ -3041,7 +3053,8 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.add("file1");
         w.git.commit("commit1");
         w.touch("file1", "new");
-        w.git.checkout().branch("other").ref(Constants.HEAD).deleteBranchIfExist(true).execute();
+        checkoutTimeout = 1 + random.nextInt(60 * 24);
+        w.git.checkout().branch("other").ref(Constants.HEAD).timeout(checkoutTimeout).deleteBranchIfExist(true).execute();
 
         Status status = new org.eclipse.jgit.api.Git(w.repo()).status().call();
 
@@ -3603,7 +3616,8 @@ public abstract class GitAPITestCase extends TestCase {
                 + Constants.MASTER;
         final String bothBranches = Constants.MASTER + "," + remoteBranch;
         w.git.fetch_().from(remote, refspecs).execute();
-        w.git.checkout().ref(Constants.MASTER).execute();
+        checkoutTimeout = 1 + random.nextInt(60 * 24);
+        w.git.checkout().ref(Constants.MASTER).timeout(checkoutTimeout).execute();
 
         assertEquals(Constants.MASTER,
                 formatBranches(w.git.getBranchesContaining(c1.name(), false)));
@@ -3641,6 +3655,15 @@ public abstract class GitAPITestCase extends TestCase {
         String sha1 = w.git.revParse("HEAD").name();
         String sha1Expected = "6b7bbcb8f0e51668ddba349b683fb06b4bd9d0ea";
         assertEquals("Wrong SHA1 as checkout of git-client-1.6.0", sha1Expected, sha1);
+    }
+
+    @Bug(37185)
+    @NotImplementedInJGit /* JGit doesn't have timeout */
+    public void test_checkout_honor_timeout() throws Exception {
+        w = clone(localMirror());
+
+        checkoutTimeout = 1 + random.nextInt(60 * 24);
+        w.git.checkout().branch("master").ref("origin/master").timeout(checkoutTimeout).deleteBranchIfExist(true).execute();
     }
 
     @Bug(25353)
