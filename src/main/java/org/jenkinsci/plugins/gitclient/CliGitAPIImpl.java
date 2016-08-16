@@ -1540,6 +1540,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser, File passphrase) throws IOException {
         File ssh = File.createTempFile("pass", ".sh");
         PrintWriter w = null;
+        listener.getLogger().println(MessageFormat.format("Writing 'cat {0}' to '{1}'", passphrase.getAbsolutePath(), ssh));
         try {
             w = new PrintWriter(ssh, "UTF-8");
             // avoid echoing command as part of the password
@@ -1555,31 +1556,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return ssh;
     }
 
-    // RSA private key passphrases to test (literal text follows the
-    // double slash and single space)
-    // ----- Start of private key passphrases -----
-    // saint2Coors4kazoo56th4hying2wing
-    // Barry Gordon<barry.gordon@gmail.com>
-    // Mark&Earl
-    // 123<456
-    // 987>654
-    // :(frown
-    // :)smile
-    // mark.earl.waite@gmail.com
-    // x^2+x**3
-    // a|b|c|d
-    // Mark's
-    // "quoted"
-    // f(abcx)
-    // git.exe
-    // "git.exe"
-    // "git.exe's"
-    // 'git.exe"s'
-    // x"|date
-    // x|date
-    // ----- End of private key passphrases -----
     private File writePassphraseToFile(SSHUserPrivateKey sshUser) throws IOException {
         File passphraseFile = workspace.createTempFile("phrase", ".txt");
+        listener.getLogger().println(MessageFormat.format("Writing passphrase '{0}' to '{1}'", sshUser.getPassphrase(), passphraseFile));
         PrintWriter w = null;
         try {
             w = new PrintWriter(passphraseFile, "UTF-8");
