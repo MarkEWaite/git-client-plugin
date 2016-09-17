@@ -3,7 +3,6 @@ package org.jenkinsci.plugins.gitclient;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
-import com.cloudbees.plugins.credentials.common.UsernameCredentials;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -843,18 +842,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
                 if (out==null)  throw new IllegalStateException();
 
-                try {
-                    // "git whatchanged" std output gives us byte stream of data
-                    // Commit messages in that byte stream are UTF-8 encoded.
-                    // We want to decode bytestream to strings using UTF-8 encoding.
-
-                    WriterOutputStream w = new WriterOutputStream(out, Charset.forName("UTF-8"));
-                    try {
-                        if (launcher.launch().cmds(args).envs(environment).stdout(w).stderr(listener.getLogger()).pwd(workspace).join() != 0)
-                            throw new GitException("Error launching git whatchanged");
-                    } finally {
-                        w.flush();
-                    }
+                // "git whatchanged" std output gives us byte stream of data
+                // Commit messages in that byte stream are UTF-8 encoded.
+                // We want to decode bytestream to strings using UTF-8 encoding.
+                try (WriterOutputStream w = new WriterOutputStream(out, Charset.forName("UTF-8"))) {
+                    if (launcher.launch().cmds(args).envs(environment).stdout(w).stderr(listener.getLogger()).pwd(workspace).join() != 0)
+                        throw new GitException("Error launching git whatchanged");
                 } catch (IOException e) {
                     throw new GitException("Error launching git whatchanged",e);
                 }
@@ -1458,15 +1451,15 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 listener.getLogger().println("using GIT_ASKPASS to set credentials " + userPass.getDescription());
 
                 if (launcher.isUnix()) {
-                    askpass = createUnixStandardAskpass(userPass);
+                    passCmd = createUnixStandardAskpass(userPass);
                 } else {
-                    askpass = createWindowsStandardAskpass(userPass);
+                    passCmd = createWindowsStandardAskpass(userPass);
                 }
 
                 env = new EnvVars(env);
-                env.put("GIT_ASKPASS", askpass.getAbsolutePath());
+                env.put("GIT_ASKPASS", passCmd.getAbsolutePath());
                 // SSH binary does not recognize GIT_ASKPASS, so set SSH_ASKPASS also, in the case we have an ssh:// URL
-                env.put("SSH_ASKPASS", askpass.getAbsolutePath());
+                env.put("SSH_ASKPASS", passCmd.getAbsolutePath());
             }
 
             if ("http".equalsIgnoreCase(url.getScheme()) || "https".equalsIgnoreCase(url.getScheme())) {
@@ -1507,8 +1500,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             deleteTempFile(passphrase);
             deleteTempFile(key);
             deleteTempFile(ssh);
-            deleteTempFile(askpass);
         }
+    }
+
+    private File createGitCredentialsStore(String urlWithCredentials) throws IOException {
+        File store = File.createTempFile("git", ".credentials");
+        PrintWriter w = null;
+        try {
+            w = new PrintWriter(store);
+            w.print(urlWithCredentials);
+            w.flush();
+        } finally {
+            if (w != null) {
+                w.close();
+            }
+        }
+        return store;
     }
 
     private File createSshKeyFile(File key, SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
@@ -1523,16 +1530,30 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, File passphrase) throws IOException {
+    private String quoteWindowsCredentials(String str) {
+        // Assumes the only meaningful character is %, this may be
+        // insufficient.
+        return str.replace("%", "%%");
+    }
+
+    private String quoteUnixCredentials(String str) {
+        // Assumes string will be used inside of single quotes, as it will
+        // only replace "'" substrings.
+        return str.replace("'", "'\\''");
+    }
+
+    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = File.createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
             // avoid echoing command as part of the password
             w.println("@echo off");
             w.println("type " + passphrase.getAbsolutePath());
         }
+        ssh.setExecutable(true);
+        return ssh;
     }
 
-    private File createUnixSshAskpass(SSHUserPrivateKey sshUser, File passphrase) throws IOException {
+    private File createUnixSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = File.createTempFile("pass", ".sh");
         listener.getLogger().println(MessageFormat.format("Writing 'cat {0}' to '{1}'", passphrase.getAbsolutePath(), ssh));
         try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
@@ -1544,12 +1565,35 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return ssh;
     }
 
+    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
+        File askpass = File.createTempFile("pass", ".bat");
+        try (PrintWriter w = new PrintWriter(askpass)) {
+            w.println("@set arg=%~1");
+            w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(creds.getUsername()));
+            w.println("@if (%arg:~0,8%)==(Password) echo " + quoteWindowsCredentials(Secret.toString(creds.getPassword())));
+        }
+        askpass.setExecutable(true);
+        return askpass;
+    }
+
+    private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
+        File askpass = File.createTempFile("pass", ".sh");
+        try (PrintWriter w = new PrintWriter(askpass)) {
+            w.println("#!/bin/sh");
+            w.println("case \"$1\" in");
+            w.println("Username*) echo '" + quoteUnixCredentials(creds.getUsername()) + "' ;;");
+            w.println("Password*) echo '" + quoteUnixCredentials(Secret.toString(creds.getPassword())) + "' ;;");
+            w.println("esac");
+        }
+        askpass.setExecutable(true);
+        return askpass;
+    }
+
     private File writePassphraseToFile(SSHUserPrivateKey sshUser) throws IOException {
         File passphraseFile = workspace.createTempFile("phrase", ".txt");
         listener.getLogger().println(MessageFormat.format("Writing passphrase '{0}' to '{1}'", sshUser.getPassphrase(), passphraseFile));
         try (PrintWriter w = new PrintWriter(passphraseFile, "UTF-8")) {
             w.println(Secret.toString(sshUser.getPassphrase()));
-            w.flush();
         }
         return passphraseFile;
     }
@@ -1679,7 +1723,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         try (PrintWriter w = new PrintWriter(ssh)) {
             w.println("@echo off");
             w.println("\"" + sshexe.getAbsolutePath() + "\" -i \"" + key.getAbsolutePath() +"\" -l \"" + user + "\" -o StrictHostKeyChecking=no %* ");
-            w.flush();
         }
         ssh.setExecutable(true);
         return ssh;
@@ -1738,10 +1781,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return result;
         } catch (GitException | InterruptedException e) {
             throw e;
-        } catch (IOException e) {
-            throw new GitException("Error performing command: " + command, e);
-        } catch (Throwable t) {
-            throw new GitException("Error performing git command", t);
+        } catch (Throwable e) {
+            throw new GitException("Error performing git command: " + command, e);
         }
 
     }
