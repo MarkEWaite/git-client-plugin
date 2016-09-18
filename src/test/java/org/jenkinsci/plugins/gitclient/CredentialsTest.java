@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import static junit.framework.TestCase.assertTrue;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.transport.RefSpec;
@@ -78,14 +77,14 @@ public class CredentialsTest {
     private LogTaskListener listener;
     private static final String LOGGING_STARTED = "*** Logging started ***";
 
-    private final static File homeDir = new File(System.getProperty("user.home"));
-    private final static File sshDir = new File(homeDir, ".ssh");
-    private final static File defaultPrivateKey = new File(sshDir, "id_rsa");
+    private final static File HOME_DIR = new File(System.getProperty("user.home"));
+    private final static File SSH_DIR = new File(HOME_DIR, ".ssh");
+    private final static File DEFAULT_PRIVATE_KEY = new File(SSH_DIR, "id_rsa");
 
     /* Directory containing local private keys for tests */
-    private final static File authDataDir = new File(sshDir, "auth-data");
+    private final static File AUTH_DATA_DIR = new File(SSH_DIR, "auth-data");
 
-    private final static File currDir = new File(".");
+    private final static File CURR_DIR = new File(".");
 
     private static PrintStream log() {
         return StreamTaskListener.fromStdout().getLogger();
@@ -176,7 +175,7 @@ public class CredentialsTest {
     }
 
     private static boolean isCredentialsSupported() throws IOException, InterruptedException {
-        CliGitAPIImpl cli = (CliGitAPIImpl) Git.with(null, new hudson.EnvVars()).in(currDir).using("git").getClient();
+        CliGitAPIImpl cli = (CliGitAPIImpl) Git.with(null, new hudson.EnvVars()).in(CURR_DIR).using("git").getClient();
         return cli.isAtLeastVersion(1, 7, 9, 0);
     }
 
@@ -190,12 +189,12 @@ public class CredentialsTest {
              * authentication case, even if there is no repos.json file in
              * the external directory.
              */
-            if (defaultPrivateKey.exists()) {
+            if (DEFAULT_PRIVATE_KEY.exists()) {
                 String username = System.getProperty("user.name");
                 String url = "https://github.com/jenkinsci/git-client-plugin.git";
                 /* Add URL if it matches the pattern */
                 if (URL_MUST_MATCH_PATTERN.matcher(url).matches()) {
-                    Object[] masterRepo = {implementation, url, username, null, defaultPrivateKey, null, "README.md", false, false};
+                    Object[] masterRepo = {implementation, url, username, null, DEFAULT_PRIVATE_KEY, null, "README.md", false, false};
                     repos.add(masterRepo);
                 }
             }
@@ -204,7 +203,7 @@ public class CredentialsTest {
              * contains a repos.json file defining the repositories to test and the
              * authentication data to use for those tests.
              */
-            File authDataDefinitions = new File(authDataDir, "repos.json");
+            File authDataDefinitions = new File(AUTH_DATA_DIR, "repos.json");
             if (authDataDefinitions.exists()) {
                 JSONParser parser = new JSONParser();
                 Object obj = parser.parse(new FileReader(authDataDefinitions));
@@ -242,7 +241,7 @@ public class CredentialsTest {
                     File privateKey = null;
 
                     if (keyfile != null) {
-                        privateKey = new File(authDataDir, keyfile);
+                        privateKey = new File(AUTH_DATA_DIR, keyfile);
                         if (!privateKey.exists()) {
                             privateKey = null;
                         }
@@ -341,7 +340,7 @@ public class CredentialsTest {
             // Reduce network transfer
             // Use a reference repository, JGit does not support reference repositories
             // Use shallow clone, JGit does not support shallow clone
-            cmd.shallow().depth(1).reference(currDir.getAbsolutePath());
+            cmd.shallow().depth(1).reference(CURR_DIR.getAbsolutePath());
         }
         cmd.execute();
         ObjectId master = git.getHeadRev(gitRepoURL, "master");
@@ -371,5 +370,5 @@ public class CredentialsTest {
      */
     private static final String NOT_JENKINS = System.getProperty("JOB_NAME") == null ? "true" : "false";
     private static final boolean TEST_ALL_CREDENTIALS = Boolean.valueOf(System.getProperty("TEST_ALL_CREDENTIALS", NOT_JENKINS));
-    private static final Pattern URL_MUST_MATCH_PATTERN = Pattern.compile(System.getProperty("URL_MUST_MATCH_PATTERN", ".*"));
+    private static final Pattern URL_MUST_MATCH_PATTERN = Pattern.compile(System.getProperty("URL_MUST_MATCH_PATTERN", "https.*visual.*206.*"));
 }
