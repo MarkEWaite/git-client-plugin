@@ -1,10 +1,14 @@
 package org.jenkinsci.plugins.gitclient;
 
+import hudson.EnvVars;
+import hudson.model.TaskListener;
+import hudson.util.StreamTaskListener;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import static junit.framework.TestCase.assertTrue;
 import org.apache.commons.lang.SystemUtils;
+import static junit.framework.TestCase.assertTrue;
 
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
@@ -256,6 +260,33 @@ public class CliGitAPIImplTest extends GitAPITestCase {
         }
 
         assertTrue("ssh.exe not found", w.cgit().getSSHExecutable().exists());
+    }
+
+    public void test_windows_character_escapes() {
+        TaskListener dummyListener = StreamTaskListener.fromStderr();
+        CliGitAPIImpl git = new CliGitAPIImpl("git", new File("."), dummyListener, new EnvVars());
+
+        /* Single character special case strings */
+        assertEquals("%%", git.quoteWindowsCredentials("%"));
+        assertEquals("^&", git.quoteWindowsCredentials("&"));
+        assertEquals("^\\", git.quoteWindowsCredentials("\\"));
+        assertEquals("^<", git.quoteWindowsCredentials("<"));
+        assertEquals("^>", git.quoteWindowsCredentials(">"));
+        assertEquals("^|", git.quoteWindowsCredentials("|"));
+
+        /* Two character special case strings */
+        assertEquals("%%%%", git.quoteWindowsCredentials("%%"));
+        assertEquals("%%^&", git.quoteWindowsCredentials("%&"));
+        assertEquals("^&^&", git.quoteWindowsCredentials("&&"));
+        assertEquals("^&^\\", git.quoteWindowsCredentials("&\\"));
+        assertEquals("^\\^\\", git.quoteWindowsCredentials("\\\\"));
+        assertEquals("^\\^<", git.quoteWindowsCredentials("\\<"));
+        assertEquals("^<^<", git.quoteWindowsCredentials("<<"));
+        assertEquals("^<^>", git.quoteWindowsCredentials("<>"));
+        assertEquals("^>^>", git.quoteWindowsCredentials(">>"));
+        assertEquals("^>^|", git.quoteWindowsCredentials(">|"));
+        assertEquals("^|^|", git.quoteWindowsCredentials("||"));
+        assertEquals("^|%%", git.quoteWindowsCredentials("|%"));
     }
 
     @Override

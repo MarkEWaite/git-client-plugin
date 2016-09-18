@@ -1530,10 +1530,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    private String quoteWindowsCredentials(String str) {
-        // Assumes the only meaningful character is %, this may be
-        // insufficient.
-        return str.replace("%", "%%");
+    /* Package protected for testing */
+    /* package */ String quoteWindowsCredentials(String str) {
+        StringBuilder result = new StringBuilder(str.length());
+        String caretEscapes = "&\\<>^|";
+        for (int idx = 0; idx < str.length(); idx++) {
+            char chr = str.charAt(idx);
+            if (chr == '%') {
+                result.append("%%");
+            } else if (caretEscapes.indexOf(chr) >= 0) {
+                result.append("^");
+                result.append(chr);
+            } else {
+                result.append(chr);
+            }
+        }
+        return result.toString();
     }
 
     private String quoteUnixCredentials(String str) {
