@@ -297,7 +297,7 @@ public class CredentialsTest {
     public void testFetchWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
-        List<RefSpec> refSpecs = new ArrayList<RefSpec>();
+        List<RefSpec> refSpecs = new ArrayList<>();
         refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/" + origin + "/master"));
         git.init_().workspace(repo.getAbsolutePath()).execute();
         assertFalse("file " + fileToCheck + " in " + repo + ", has " + listDir(repo), clonedFile.exists());
@@ -332,7 +332,7 @@ public class CredentialsTest {
     public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
-        List<RefSpec> refSpecs = new ArrayList<RefSpec>();
+        List<RefSpec> refSpecs = new ArrayList<>();
         refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/" + origin + "/master"));
         addCredential(username, password, privateKey);
         CloneCommand cmd = git.clone_().url(gitRepoURL).repositoryName(origin).refspecs(refSpecs);
