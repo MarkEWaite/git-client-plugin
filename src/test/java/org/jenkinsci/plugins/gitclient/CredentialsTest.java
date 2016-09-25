@@ -218,6 +218,9 @@ public class CredentialsTest {
                         if (skipIf.equals(implementation)) {
                             continue;
                         }
+                        if (implementation.startsWith("jgit") && skipIf.startsWith("jgit")) { // Treat jgitapache like jgit
+                            continue;
+                        }
                     }
 
                     if (fileToCheck == null) {
