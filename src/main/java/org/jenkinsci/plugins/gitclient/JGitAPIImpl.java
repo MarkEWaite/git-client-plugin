@@ -1699,7 +1699,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         Repository repo = null;
         try {
             Set<String> tags = new HashSet<String>();
-            FileNameMatcher matcher = new FileNameMatcher(tagPattern, '/');
+            FileNameMatcher matcher = new FileNameMatcher(tagPattern, null);
             repo = getRepository();
             Map<String, Ref> refList = repo.getRefDatabase().getRefs(R_TAGS);
             for (Ref ref : refList.values()) {
@@ -1720,6 +1720,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     /** {@inheritDoc} */
     public Set<String> getRemoteTagNames(String tagPattern) throws GitException {
+        /* BUG: Lists local tag names, not remote tag names */
         if (tagPattern == null) tagPattern = "*";
 
         Repository repo = null;
