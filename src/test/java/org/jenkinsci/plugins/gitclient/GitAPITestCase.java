@@ -3980,7 +3980,7 @@ public abstract class GitAPITestCase extends TestCase {
     }
 
     @NotImplementedInJGit
-   public void test_submodule_recursive_sync() throws Exception {
+    public void test_submodule_recursive_sync() throws Exception {
         File tempRemoteDir = temporaryDirectoryAllocator.allocate();
         extract(new ZipFile("src/test/resources/recursiveSubsRepo.zip"), tempRemoteDir);
         File pathToTempRepo = new File(tempRemoteDir, "recursiveSubsRepo/repository");
