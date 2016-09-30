@@ -2031,11 +2031,11 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("modules/ntp/CHANGELOG does not exist", w.exists("modules/ntp/CHANGELOG"));
 
         // delete the CHANGELOG file from the submodule
-        if (!((CliGitAPIImpl)w.git).isAtLeastVersion(1,8,2,0)) {
-            System.err.println("git must be at least 1.8.2 to test 'submodule update --force'.");
+        if (!((CliGitAPIImpl)w.git).isAtLeastVersion(1,9,0,0)) {
+            System.err.println("git must be at least 1.9.0 to test 'submodule update --force'.");
             return;
         }
-        w.cmd("git -C modules/ntp rm CHANGELOG");
+        w.cmd("git -C modules/ntp rm CHANGELOG"); // git 1.8.3 does not include "git -C"
 
         // perform a submodule update without force, and ensure that it does
         // not add the file back
