@@ -1,4 +1,3 @@
-
 package org.jenkinsci.plugins.gitclient;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey;
@@ -33,7 +32,6 @@ import org.eclipse.jgit.transport.URIish;
 import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -43,6 +41,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.junit.ClassRule;
 
 /**
  *
@@ -52,8 +51,8 @@ import org.json.simple.parser.ParseException;
 public class CredentialsTest {
 
     // Required for credentials use
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    @ClassRule
+    public static final JenkinsRule j = new JenkinsRule();
 
     private final String gitImpl;
     private final String gitRepoURL;
@@ -66,7 +65,6 @@ public class CredentialsTest {
 
     private GitClient git;
     private File repo;
-    private BasicSSHUserPrivateKey credential;
 
     private List<String> expectedLogSubstrings = new ArrayList<>();
 
@@ -99,7 +97,7 @@ public class CredentialsTest {
         this.fileToCheck = fileToCheck;
         this.submodules = submodules;
         this.useParentCreds = useParentCreds;
-        log().println("Repo: " + gitRepoUrl);
+        log().println("Repo: " + gitRepoUrl + " implementation: " + gitImpl + " username: " + username + " password: " + password + " key: " + privateKey);
     }
 
     @Before
@@ -179,7 +177,7 @@ public class CredentialsTest {
     @Parameterized.Parameters(name = "{2}-{1}-{0}")
     public static Collection gitRepoUrls() throws MalformedURLException, FileNotFoundException, IOException, InterruptedException, ParseException {
         List<Object[]> repos = new ArrayList<>();
-        String[] implementations = isCredentialsSupported() ? new String[]{"git", "jgit"} : new String[]{"jgit"};
+        String[] implementations = isCredentialsSupported() ? new String[]{"git", "jgit", "jgitapache"} : new String[]{"jgit"};
         for (String implementation : implementations) {
             /* Add master repository as authentication test with private
              * key of current user.  Try to test at least one
@@ -216,6 +214,9 @@ public class CredentialsTest {
                     String fileToCheck = (String) entry.get("file");
                     if (skipIf != null) {
                         if (skipIf.equals(implementation)) {
+                            continue;
+                        }
+                        if (implementation.startsWith("jgit") && skipIf.startsWith("jgit")) { // Treat jgitapache like jgit
                             continue;
                         }
                     }
@@ -304,7 +305,7 @@ public class CredentialsTest {
         cmd.execute();
         git.setRemoteUrl(origin, gitRepoURL);
         ObjectId master = git.getHeadRev(gitRepoURL, "master");
-        log().println("Checking out " + master + " from " + gitRepoURL);
+        log().println("Checking out " + master.getName() + " from " + gitRepoURL);
         git.checkout().branch("master").ref(master.getName()).deleteBranchIfExist(true).execute();
         if (submodules) {
             log().println("Initializing submodules from " + gitRepoURL);
