@@ -250,6 +250,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public Integer timeout;
             public boolean tags = true;
             public Integer depth = 1;
+            public boolean withLFS = false;
 
             public FetchCommand from(URIish remote, List<RefSpec> refspecs) {
                 this.url = remote;
@@ -279,6 +280,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             public FetchCommand depth(Integer depth) {
                 this.depth = depth;
+                return this;
+            }
+
+            public FetchCommand withLFS() {
+                this.withLFS = true;
                 return this;
             }
 
@@ -313,6 +319,13 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 warnIfWindowsTemporaryDirNameHasSpaces();
 
                 launchCommandWithCredentials(args, workspace, cred, url, timeout);
+
+                if (withLFS) {
+                    ArgumentListBuilder lfsArgs = new ArgumentListBuilder();
+                    lfsArgs.add("lfs");
+                    lfsArgs.add("pull");
+                    launchCommandWithCredentials(lfsArgs, workspace, cred, url, timeout);
+                }
             }
         };
     }
