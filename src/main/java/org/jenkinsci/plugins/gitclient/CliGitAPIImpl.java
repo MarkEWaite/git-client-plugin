@@ -1713,7 +1713,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private String launchCommandIn(ArgumentListBuilder args, File workDir) throws GitException, InterruptedException {
-        return launchCommandIn(args, workDir, environment);
+        return launchCommandIn(args, workDir, environment, null);
     }
 
     private String launchCommandIn(ArgumentListBuilder args, File workDir, EnvVars env) throws GitException, InterruptedException {
@@ -1738,16 +1738,13 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             args.prepend(gitExe);
 
             if (timeout == null) {
+                timeout = TIMEOUT;
                 Jenkins jenkins = Jenkins.getInstance();
                 if (jenkins != null) {
                     GitTool.DescriptorImpl gitTool = (GitTool.DescriptorImpl) jenkins.getDescriptor(GitTool.class);
                     if (gitTool != null && gitTool.getGitDefaultTimeout() != null && gitTool.getGitDefaultTimeout() > 0) {
                         timeout = gitTool.getGitDefaultTimeout();
-                    } else {
-                        timeout = TIMEOUT;
                     }
-                } else {
-                    timeout = TIMEOUT;
                 }
             }
             listener.getLogger().println(" > " + command + (TIMEOUT_LOG_PREFIX + timeout));
