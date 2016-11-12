@@ -1716,10 +1716,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return launchCommandIn(args, workDir, environment, null);
     }
 
-    private String launchCommandIn(ArgumentListBuilder args, File workDir, EnvVars env) throws GitException, InterruptedException {
-    	return launchCommandIn(args, workDir, environment, null);
-    }
-
     private String launchCommandIn(ArgumentListBuilder args, File workDir, EnvVars env, Integer timeout) throws GitException, InterruptedException {
         ByteArrayOutputStream fos = new ByteArrayOutputStream();
         // JENKINS-13356: capture the output of stderr separately
