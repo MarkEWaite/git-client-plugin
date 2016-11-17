@@ -1283,13 +1283,14 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     /**
      * clean.
      *
+     * @param cleanSubmodule flag to add extra -f
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      */
-    public void clean() throws GitException {
+    public void clean(boolean cleanSubmodule) throws GitException {
         try (Repository repo = getRepository()) {
             Git git = git(repo);
             git.reset().setMode(HARD).call();
-            git.clean().setCleanDirectories(true).setIgnore(false).call();
+            git.clean().setCleanDirectories(true).setIgnore(false).setForce(cleanSubmodule).call();
         } catch (GitAPIException e) {
             throw new GitException(e);
         // Fix JENKINS-43198:
@@ -2085,7 +2086,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public void submoduleClean(boolean recursive) throws GitException {
         try {
             for (JGitAPIImpl sub : submodules()) {
-                sub.clean();
+                sub.clean(false);
                 if (recursive) {
                     sub.submoduleClean(true);
                 }
