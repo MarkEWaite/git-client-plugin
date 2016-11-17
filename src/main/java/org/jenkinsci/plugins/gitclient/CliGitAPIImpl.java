@@ -779,28 +779,25 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * Remove untracked files and directories, including files listed
      * in the ignore rules.
      *
-     * @param cleanSubmodule flag to add extra -f
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      * @throws java.lang.InterruptedException if interrupted.
      */
-    public void clean(boolean cleanSubmodule) throws GitException, InterruptedException {
-        reset(true);
-	String cmd = "-fdx";
-	if (cleanSubmodule) cmd = "-ffdx";
-
-	launchCommand("clean", cmd);
+    public void clean() throws GitException, InterruptedException {
+        this.clean(false);
     }
 
     /**
      * Remove untracked files and directories, including files listed
      * in the ignore rules.
      *
+     * @param cleanSubmodule flag to add extra -f
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      * @throws java.lang.InterruptedException if interrupted.
      */
-    public void clean() throws GitException, InterruptedException {
+    public void clean(boolean cleanSubmodule) throws GitException, InterruptedException {
         reset(true);
         String cmd = "-fdx";
+        if (cleanSubmodule) cmd = "-ffdx";
 
         launchCommand("clean", cmd);
     }
