@@ -1514,21 +1514,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
     }
 
-    private File createGitCredentialsStore(String urlWithCredentials) throws IOException {
-        File store = File.createTempFile("git", ".credentials");
-        PrintWriter w = null;
-        try {
-            w = new PrintWriter(store);
-            w.print(urlWithCredentials);
-            w.flush();
-        } finally {
-            if (w != null) {
-                w.close();
-            }
-        }
-        return store;
-    }
-
     private File createSshKeyFile(File key, SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
         key = File.createTempFile("ssh", "key");
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
