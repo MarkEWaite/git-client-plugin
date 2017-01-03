@@ -1974,7 +1974,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public boolean deleteBranch;
             public List<String> sparseCheckoutPaths = Collections.emptyList();
             public Integer timeout;
-            public boolean withLFS;
+            public String lfsRemote;
 
             public CheckoutCommand ref(String ref) {
                 this.ref = ref;
@@ -2001,8 +2001,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 return this;
             }
             
-            public CheckoutCommand withLFS() {
-                this.withLFS = true;
+            public CheckoutCommand lfsRemote(String lfsRemote) {
+                this.lfsRemote = lfsRemote;
                 return this;
             }
 
@@ -2037,7 +2037,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     sparseCheckout(sparseCheckoutPaths);
 
                     EnvVars checkoutEnv = environment;
-                    if (withLFS) {
+                    if (lfsRemote != null) {
                         // Disable the git-lfs smudge filter because it is much slower on
                         // certain OSes than doing a single "git lfs pull" after checkout.
                         checkoutEnv = new EnvVars(checkoutEnv);
@@ -2068,15 +2068,14 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     args.add(ref);
                     launchCommandIn(args, workspace, checkoutEnv, timeout);
                     
-                    if (withLFS) {
-                        final String remote = getDefaultRemote();
-                        final String url = getRemoteUrl(remote);
+                    if (lfsRemote != null) {
+                        final String url = getRemoteUrl(lfsRemote);
                         StandardCredentials cred = credentials.get(url);
                         if (cred == null) cred = defaultCredentials;
                         ArgumentListBuilder lfsArgs = new ArgumentListBuilder();
                         lfsArgs.add("lfs");
                         lfsArgs.add("pull");
-                        lfsArgs.add(remote);
+                        lfsArgs.add(lfsRemote);
                         try {
                             launchCommandWithCredentials(lfsArgs, workspace, cred, new URIish(url), timeout);
                         } catch (URISyntaxException e) {
