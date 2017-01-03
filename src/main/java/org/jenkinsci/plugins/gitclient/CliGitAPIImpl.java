@@ -1450,21 +1450,16 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         File askpass = null;
         EnvVars env = environment;
         try {
+            env = new EnvVars(env);
             if (credentials instanceof SSHUserPrivateKey) {
                 SSHUserPrivateKey sshUser = (SSHUserPrivateKey) credentials;
                 listener.getLogger().println("using GIT_SSH to set credentials " + sshUser.getDescription());
-
                 key = createSshKeyFile(key, sshUser);
                 if (launcher.isUnix()) {
-                    ssh =  createUnixGitSSH(key, sshUser.getUsername());
                     pass =  createUnixSshAskpass(sshUser);
                 } else {
-                    ssh =  createWindowsGitSSH(key, sshUser.getUsername());
                     pass =  createWindowsSshAskpass(sshUser);
                 }
-
-                env = new EnvVars(env);
-                env.put("GIT_SSH", ssh.getAbsolutePath());
                 env.put("SSH_ASKPASS", pass.getAbsolutePath());
 
             } else if (credentials instanceof StandardUsernamePasswordCredentials) {
@@ -1716,7 +1711,16 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("@echo off");
-            w.println("\"" + sshexe.getAbsolutePath() + "\" -i \"" + key.getAbsolutePath() +"\" -l \"" + user + "\" -o StrictHostKeyChecking=no %* ");
+            w.print("\"" + sshexe.getAbsolutePath() + "\"");
+            if (key != null) {
+                w.print(" -i \"" + key.getAbsolutePath() + "\"");
+            }
+            if (user != null) {
+                w.print(" -l \"" + user + "\"");
+            }
+            w.print(" -o StrictHostKeyChecking=no");
+            w.println(" %* ");
+            w.flush();
         }
         ssh.setExecutable(true);
         return ssh;
@@ -1731,7 +1735,15 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("  DISPLAY=:123.456");
             w.println("  export DISPLAY");
             w.println("fi");
-            w.println("ssh -i \"" + key.getAbsolutePath() + "\" -l \"" + user + "\" -o StrictHostKeyChecking=no \"$@\"");
+	    w.print("ssh");
+	    if (key != null) {
+		w.print(" -i \"" + key.getAbsolutePath() + "\"");
+	    }
+	    if (user != null) {
+		w.print(" -l \"" + user + "\"");
+	    }
+	    w.print(" -o StrictHostKeyChecking=no");
+	    w.println(" \"$@\" ");
         }
         ssh.setExecutable(true);
         return ssh;
