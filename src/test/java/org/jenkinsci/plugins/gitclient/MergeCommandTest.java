@@ -16,6 +16,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
@@ -47,6 +48,13 @@ public class MergeCommandTest {
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
+    @BeforeClass
+    public static void setCliGitDefaults() throws Exception {
+        /* Command line git commands fail unless certain default values are set */
+        CliGitCommand gitCmd = new CliGitCommand(null);
+        gitCmd.setDefaults();
+    }
+
     @Before
     public void createMergeTestRepo() throws IOException, InterruptedException {
         EnvVars env = new hudson.EnvVars();
@@ -58,9 +66,9 @@ public class MergeCommandTest {
         // Create a master branch
         char randomChar = (char) ((new Random()).nextInt(26) + 'a');
         File readme = new File(repo, "README.md");
-        PrintWriter writer = new PrintWriter(readme, "UTF-8");
-        writer.println("# Master Branch README " + randomChar);
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(readme, "UTF-8")) {
+            writer.println("# Master Branch README " + randomChar);
+        }
         git.add("README.md");
         git.commit("Commit README on master branch");
         commit1Master = git.revParse("HEAD");
@@ -70,9 +78,9 @@ public class MergeCommandTest {
         // Create branch-1
         readmeOne = new File(repo, "README-branch-1.md");
         git.checkoutBranch("branch-1", "master");
-        writer = new PrintWriter(readmeOne, "UTF-8");
-        writer.println("# Branch 1 README " + randomChar);
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(readmeOne, "UTF-8")) {
+            writer.println("# Branch 1 README " + randomChar);
+        }
         git.add(readmeOne.getName());
         git.commit("Commit README on branch 1");
         commit1Branch = git.revParse("HEAD");
@@ -82,11 +90,11 @@ public class MergeCommandTest {
         assertTrue("Master README missing on branch 1", readme.exists());
 
         // Commit a second change to branch-1
-        writer = new PrintWriter(readmeOne, "UTF-8");
-        writer.println("# Branch 1 README " + randomChar);
-        writer.println("");
-        writer.println("Second change to branch 1 README");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(readmeOne, "UTF-8")) {
+            writer.println("# Branch 1 README " + randomChar);
+            writer.println("");
+            writer.println("Second change to branch 1 README");
+        }
         git.add(readmeOne.getName());
         git.commit("Commit 2nd README change on branch 1");
         commit2Branch = git.revParse("HEAD");
@@ -97,11 +105,11 @@ public class MergeCommandTest {
 
         // Commit a second change to master branch
         git.checkout("master");
-        writer = new PrintWriter(readme, "UTF-8");
-        writer.println("# Master Branch README " + randomChar);
-        writer.println("");
-        writer.println("Second commit");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(readme, "UTF-8")) {
+            writer.println("# Master Branch README " + randomChar);
+            writer.println("");
+            writer.println("Second commit");
+        }
         git.add("README.md");
         git.commit("Commit 2nd README change on master branch");
         commit2Master = git.revParse("HEAD");
@@ -121,9 +129,9 @@ public class MergeCommandTest {
         git.checkout("master");
         git.branch("branch-conflict");
         git.checkout("branch-conflict");
-        PrintWriter writer = new PrintWriter(readmeOne, "UTF-8");
-        writer.println("# branch-conflict README with conflicting change");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(readmeOne, "UTF-8")) {
+            writer.println("# branch-conflict README with conflicting change");
+        }
         git.add(readmeOne.getName());
         git.commit("Commit conflicting README on branch branch-conflict");
         commitConflict = git.revParse("HEAD");
@@ -140,7 +148,7 @@ public class MergeCommandTest {
 
     @Parameterized.Parameters(name = "{0}")
     public static Collection gitImplementations() {
-        List<Object[]> args = new ArrayList<Object[]>();
+        List<Object[]> args = new ArrayList<>();
         String[] implementations = new String[]{"git", "jgit"};
         for (String implementation : implementations) {
             Object[] gitImpl = {implementation};

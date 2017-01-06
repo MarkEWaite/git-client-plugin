@@ -10,30 +10,19 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * JGit as {@link hudson.plugins.git.GitTool}
- *
- * @author Kohsuke Kawaguchi
+ * JGit, configured with the Apache HTTP Client, as {@link hudson.plugins.git.GitTool}
  */
-public class JGitTool extends GitTool {
+public class JGitApacheTool extends GitTool {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Constructor for JGitTool.
-     *
-     * @param properties a {@link java.util.List} object.
-     */
     @DataBoundConstructor
-    public JGitTool(List<? extends ToolProperty<?>> properties) {
-        super("jgit", MAGIC_EXENAME, properties);
+    public JGitApacheTool(final List<? extends ToolProperty<?>> properties) {
+        super(MAGIC_EXENAME, MAGIC_EXENAME, properties);
     }
 
-    /**
-     * Constructor for JGitTool.
-     */
-    public JGitTool() {
+    public JGitApacheTool() {
         this(Collections.<ToolProperty<?>>emptyList());
     }
-
 
     /** {@inheritDoc} */
     @Override
@@ -41,16 +30,17 @@ public class JGitTool extends GitTool {
         return super.getDescriptor();
     }
 
-    @Extension @Symbol("jgit")
+    @Extension @Symbol(MAGIC_EXENAME)
     public static class DescriptorImpl extends GitTool.DescriptorImpl {
         @Override
         public String getDisplayName() {
-            return "JGit";
+            return "JGit with Apache HTTP client";
         }
     }
 
     /**
      * {@link Git} recognizes this as a magic executable name to use {@link JGitAPIImpl}.
      */
-    public static final String MAGIC_EXENAME = "jgit";
+    public static final String MAGIC_EXENAME = "jgitapache";
+
 }
