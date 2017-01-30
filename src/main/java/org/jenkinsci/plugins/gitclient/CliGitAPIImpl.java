@@ -528,7 +528,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public MergeCommand merge() {
         return new MergeCommand() {
             public ObjectId rev;
-            public List<ObjectId> moreRevs = new ArrayList<ObjectId>();
+            public List<ObjectId> moreRevs = new ArrayList<>();
             public String comment;
             public String strategy;
             public String fastForwardMode;

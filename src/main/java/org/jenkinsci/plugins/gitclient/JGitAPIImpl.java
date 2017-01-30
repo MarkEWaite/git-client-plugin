@@ -1362,7 +1362,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return new MergeCommand() {
 
             ObjectId rev;
-            List<ObjectId> moreRevs = new ArrayList<ObjectId>();
+            List<ObjectId> moreRevs = new ArrayList<>();
             MergeStrategy strategy;
             FastForwardMode fastForwardMode;
             boolean squash;
