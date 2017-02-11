@@ -566,7 +566,7 @@ public class GitClientTest {
         String branch = "tests/largeFileSupport";
         String remote = fetchUpstream(branch);
         gitClient.checkout().branch(branch).ref(remote + "/" + branch).lfsRemote(remote).execute();
-        File uuidFile = new File(repoFolder.getRoot(), "uuid.txt");
+        File uuidFile = new File(repoRoot, "uuid.txt");
         String fileContent = FileUtils.readFileToString(uuidFile, "utf-8").trim();
         String expectedContent = "5e7733d8acc94636850cb466aec524e4";
         assertEquals("Incorrect LFS file contents in " + uuidFile, expectedContent, fileContent);
@@ -612,7 +612,7 @@ public class GitClientTest {
         String branch = "tests/largeFileSupport";
         String remote = fetchUpstream(branch);
         gitClient.checkout().branch(branch).ref(remote + "/" + branch).execute();
-        File uuidFile = new File(repoFolder.getRoot(), "uuid.txt");
+        File uuidFile = new File(repoRoot, "uuid.txt");
         String fileContent = FileUtils.readFileToString(uuidFile, "utf-8").trim();
         String expectedContent = "version https://git-lfs.github.com/spec/v1\n"
                 + "oid sha256:75d122e4160dc91480257ff72403e77ef276e24d7416ed2be56d4e726482d86e\n"
