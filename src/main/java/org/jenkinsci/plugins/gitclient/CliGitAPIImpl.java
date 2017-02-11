@@ -18,12 +18,14 @@ import hudson.model.TaskListener;
 import hudson.plugins.git.Branch;
 import hudson.plugins.git.GitException;
 import hudson.plugins.git.GitLockFailedException;
+import hudson.plugins.git.GitTool;
 import hudson.plugins.git.IGitAPI;
 import hudson.plugins.git.IndexEntry;
 import hudson.plugins.git.Revision;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.Secret;
 
+import jenkins.model.Jenkins;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jgit.lib.Constants;
@@ -1434,7 +1436,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private String launchCommandWithCredentials(ArgumentListBuilder args, File workDir,
     		StandardCredentials credentials,
     		@NonNull URIish url) throws GitException, InterruptedException {
-    	return launchCommandWithCredentials(args, workDir, credentials, url, TIMEOUT);
+    	return launchCommandWithCredentials(args, workDir, credentials, url, null);
     }
     private String launchCommandWithCredentials(ArgumentListBuilder args, File workDir,
                                                 StandardCredentials credentials,
@@ -1750,11 +1752,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private String launchCommandIn(ArgumentListBuilder args, File workDir) throws GitException, InterruptedException {
-        return launchCommandIn(args, workDir, environment);
-    }
-
-    private String launchCommandIn(ArgumentListBuilder args, File workDir, EnvVars env) throws GitException, InterruptedException {
-    	return launchCommandIn(args, workDir, environment, TIMEOUT);
+        return launchCommandIn(args, workDir, environment, null);
     }
 
     private String launchCommandIn(ArgumentListBuilder args, File workDir, EnvVars env, Integer timeout) throws GitException, InterruptedException {
@@ -1773,11 +1771,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         String command = gitExe + " " + StringUtils.join(args.toCommandArray(), " ");
         try {
             args.prepend(gitExe);
-            listener.getLogger().println(" > " + command + (timeout != null ? TIMEOUT_LOG_PREFIX + timeout : ""));
+
+            if (timeout == null) {
+                timeout = TIMEOUT;
+                Jenkins jenkins = Jenkins.getInstance();
+                if (jenkins != null) {
+                    GitTool.DescriptorImpl gitTool = (GitTool.DescriptorImpl) jenkins.getDescriptor(GitTool.class);
+                    if (gitTool != null && gitTool.getGitDefaultTimeout() != null && gitTool.getGitDefaultTimeout() > 0) {
+                        timeout = gitTool.getGitDefaultTimeout();
+                    }
+                }
+            }
+            listener.getLogger().println(" > " + command + (TIMEOUT_LOG_PREFIX + timeout));
             Launcher.ProcStarter p = launcher.launch().cmds(args.toCommandArray()).
                     envs(environment).stdout(fos).stderr(err);
             if (workDir != null) p.pwd(workDir);
-            int status = p.start().joinWithTimeout(timeout != null ? timeout : TIMEOUT, TimeUnit.MINUTES, listener);
+            int status = p.start().joinWithTimeout(timeout, TimeUnit.MINUTES, listener);
 
             String result = fos.toString(Charset.defaultCharset().toString());
             if (status != 0) {
