@@ -918,6 +918,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return new SubmoduleUpdateCommand() {
             boolean recursive                      = false;
             boolean remoteTracking                 = false;
+            boolean force                          = false;
             boolean parentCredentials              = false;
             String  ref                            = null;
             Map<String, String> submodBranch   = new HashMap<>();
@@ -930,6 +931,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             public SubmoduleUpdateCommand remoteTracking(boolean remoteTracking) {
                 this.remoteTracking = remoteTracking;
+                return this;
+            }
+
+            public SubmoduleUpdateCommand force(boolean force) {
+                this.force = force;
                 return this;
             }
 
@@ -966,6 +972,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 args.add("submodule", "update");
                 if (recursive) {
                     args.add("--init", "--recursive");
+                }
+                if (force) {
+                    args.add("--force");
                 }
                 if (remoteTracking && isAtLeastVersion(1,8,2,0)) {
                     args.add("--remote");

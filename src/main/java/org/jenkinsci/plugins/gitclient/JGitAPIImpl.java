@@ -1935,11 +1935,17 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand submoduleUpdate() {
         return new org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand() {
             boolean recursive      = false;
+            boolean force          = false;
             boolean remoteTracking = false;
             String  ref            = null;
 
             public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand recursive(boolean recursive) {
                 this.recursive = recursive;
+                return this;
+            }
+
+            public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand force(boolean force){
+                this.force = force;
                 return this;
             }
 
@@ -1970,6 +1976,10 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public void execute() throws GitException, InterruptedException {
                 if (remoteTracking) {
                     listener.getLogger().println("[ERROR] JGit doesn't support remoteTracking submodules yet.");
+                    throw new UnsupportedOperationException("not implemented yet");
+                }
+                if (force) {
+                    listener.getLogger().println("[ERROR] JGit doesn't support force updating submodules yet.");
                     throw new UnsupportedOperationException("not implemented yet");
                 }
                 if ((ref != null) && !ref.isEmpty()) {
