@@ -109,7 +109,7 @@ public class GitClientTest {
         boolean gitLFSExists;
         try {
             // If git-lfs is installed then the version string should look like this:
-            // git-lfs/1.4.4 (GitHub; linux amd64; go 1.7.3; git cbf91a9)
+            // git-lfs/1.5.6 (GitHub; linux amd64; go 1.7.4)
             gitLFSExists = cliGitClient.launchCommand("lfs", "version").startsWith("git-lfs");
         } catch (GitException exception) {
             // This is expected when git-lfs is not installed.
