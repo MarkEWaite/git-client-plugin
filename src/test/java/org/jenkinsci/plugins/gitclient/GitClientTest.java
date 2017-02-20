@@ -77,6 +77,9 @@ public class GitClientTest {
     /** URL of upstream (GitHub) repository. */
     private final String upstreamRepoURL = "https://github.com/jenkinsci/git-client-plugin";
 
+    /** URL of GitHub test repository with large file support. */
+    private final String lfsTestRepoURL = "https://github.com/MarkEWaite/jenkins-pipeline-utils";
+
     /* Instance of object under test */
     private GitClient gitClient = null;
 
@@ -564,7 +567,7 @@ public class GitClientTest {
         assumeThat(gitImplName, is("git"));
         assumeTrue(CLI_GIT_HAS_GIT_LFS);
         String branch = "tests/largeFileSupport";
-        String remote = fetchUpstream(branch);
+        String remote = fetchLFSTestRepo(branch);
         gitClient.checkout().branch(branch).ref(remote + "/" + branch).lfsRemote(remote).execute();
         File uuidFile = new File(repoRoot, "uuid.txt");
         String fileContent = FileUtils.readFileToString(uuidFile, "utf-8").trim();
@@ -578,7 +581,7 @@ public class GitClientTest {
         assumeThat(gitImplName, startsWith("jgit"));
         assumeTrue(CLI_GIT_HAS_GIT_LFS);
         String branch = "tests/largeFileSupport";
-        String remote = fetchUpstream(branch);
+        String remote = fetchLFSTestRepo(branch);
         gitClient.checkout().branch(branch).ref(remote + "/" + branch).lfsRemote(remote).execute();
     }
 
@@ -589,7 +592,7 @@ public class GitClientTest {
         assumeThat(gitImplName, is("git"));
         assumeTrue(CLI_GIT_HAS_GIT_LFS);
         String branch = "tests/largeFileSupport";
-        String remote = fetchUpstream(branch);
+        String remote = fetchLFSTestRepo(branch);
         gitClient.checkout().branch(branch).ref(remote + "/" + branch).execute();
     }
 
@@ -600,7 +603,7 @@ public class GitClientTest {
         assumeThat(gitImplName, startsWith("jgit"));
         assumeTrue(CLI_GIT_HAS_GIT_LFS);
         String branch = "tests/largeFileSupport";
-        String remote = fetchUpstream(branch);
+        String remote = fetchLFSTestRepo(branch);
         gitClient.checkout().branch(branch).ref(remote + "/" + branch).execute();
     }
 
@@ -610,7 +613,7 @@ public class GitClientTest {
     public void testCheckoutWithoutLFSWhenLFSNotAvailable() throws Exception {
         assumeFalse(CLI_GIT_HAS_GIT_LFS);
         String branch = "tests/largeFileSupport";
-        String remote = fetchUpstream(branch);
+        String remote = fetchLFSTestRepo(branch);
         gitClient.checkout().branch(branch).ref(remote + "/" + branch).execute();
         File uuidFile = new File(repoRoot, "uuid.txt");
         String fileContent = FileUtils.readFileToString(uuidFile, "utf-8").trim();
@@ -803,6 +806,15 @@ public class GitClientTest {
             }
             fetch(gitClient, remote, firstRefSpec, refSpecStrings);
         }
+        return remote;
+    }
+
+    private String fetchLFSTestRepo(String firstBranch) throws Exception {
+        String remote = "lfs-test-origin";
+        gitClient.addRemoteUrl(remote, lfsTestRepoURL);
+        String firstRef = remote + "/" + firstBranch;
+        String firstRefSpec = "+refs/heads/" + firstBranch + ":refs/remotes/" + firstRef;
+        fetch(gitClient, remote, firstRefSpec);
         return remote;
     }
 
