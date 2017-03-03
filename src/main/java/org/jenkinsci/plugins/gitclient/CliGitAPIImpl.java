@@ -1638,19 +1638,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return createWindowsBatFile(creds.getUsername(), Secret.toString(creds.getPassword()));
     }
 
-    private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
-        File askpass = File.createTempFile("pass", ".sh");
-        try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
-            w.println("#!/bin/sh");
-            w.println("case \"$1\" in");
-            w.println("Username*) cat " + usernameFile.getAbsolutePath() + " ;;");
-            w.println("Password*) cat " + passwordFile.getAbsolutePath() + " ;;");
-            w.println("esac");
-        }
-        askpass.setExecutable(true);
-        return askpass;
-    }
-
     private File createPassphraseFile(SSHUserPrivateKey sshUser) throws IOException {
         File passphraseFile = workspace.createTempFile("phrase", ".txt");
         listener.getLogger().println(MessageFormat.format("Writing passphrase '{0}' to '{1}'", sshUser.getPassphrase(), passphraseFile));
