@@ -1619,8 +1619,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixStandardAskpass(
-            StandardUsernamePasswordCredentials creds, 
-            File usernameFile, 
+            StandardUsernamePasswordCredentials creds,
+            File usernameFile,
             File passwordFile) throws IOException {
         File askpass = File.createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
