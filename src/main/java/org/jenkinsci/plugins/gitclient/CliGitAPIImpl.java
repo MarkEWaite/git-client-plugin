@@ -51,8 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -1104,9 +1102,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /**
-     * {@inheritDoc}
+     * Get submodule path.
      *
-     * Get submodule path
+     * @param name submodule name whose path is returned
+     * @return path to submodule
+     * @throws GitException on git error
+     * @throws InterruptedException if interrupted
      */
     public @CheckForNull String getSubmodulePath(String name) throws GitException, InterruptedException {
         String result = launchCommand( "config", "-f", ".gitmodules", "--get", "submodule."+name+".path" );
@@ -1472,6 +1473,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if (!env.containsKey("DISPLAY")) {
                     env.put("DISPLAY", ":");
                 }
+
             } else if (credentials instanceof StandardUsernamePasswordCredentials) {
                 StandardUsernamePasswordCredentials userPass = (StandardUsernamePasswordCredentials) credentials;
                 listener.getLogger().println("using GIT_ASKPASS to set credentials " + userPass.getDescription());
@@ -1545,22 +1547,20 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    /* Package protected for testing */
-    /* package */ String quoteWindowsCredentials(String str) {
-        StringBuilder result = new StringBuilder(str.length());
-        String caretEscapes = "&\\<>^|";
-        for (int idx = 0; idx < str.length(); idx++) {
-            char chr = str.charAt(idx);
-            if (chr == '%') {
-                result.append("%%");
-            } else if (caretEscapes.indexOf(chr) >= 0) {
-                result.append("^");
-                result.append(chr);
-            } else {
-                result.append(chr);
-            }
-        }
-        return result.toString();
+    /* package protected for testability */
+    String quoteWindowsCredentials(String str) {
+        // Quote special characters for Windows Batch Files
+        // See: http://ss64.com/nt/syntax-esc.html
+        String quoted = str.replace("%", "%%")
+                        .replace("^", "^^")
+                        .replace(" ", "^ ")
+                        .replace("\t", "^\t")
+                        .replace("\\", "^\\")
+                        .replace("&", "^&")
+                        .replace("|", "^|")
+                        .replace(">", "^>")
+                        .replace("<", "^<");
+        return quoted;
     }
 
     private String quoteUnixCredentials(String str) {
@@ -1606,10 +1606,39 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return askpass;
     }
 
+    /* Package protected for testability */
+    File createWindowsBatFile(String userName, String password) throws IOException {
+        File askpass = File.createTempFile("pass", ".bat");
+        try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
+            w.println("@set arg=%~1");
+            w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(userName));
+            w.println("@if (%arg:~0,8%)==(Password) echo " + quoteWindowsCredentials(password));
+        }
+        askpass.setExecutable(true);
+        return askpass;
+    }
+
     private File createUnixStandardAskpass(
             StandardUsernamePasswordCredentials creds, 
             File usernameFile, 
             File passwordFile) throws IOException {
+        File askpass = File.createTempFile("pass", ".sh");
+        try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
+            w.println("#!/bin/sh");
+            w.println("case \"$1\" in");
+            w.println("Username*) cat " + usernameFile.getAbsolutePath() + " ;;");
+            w.println("Password*) cat " + passwordFile.getAbsolutePath() + " ;;");
+            w.println("esac");
+        }
+        askpass.setExecutable(true);
+        return askpass;
+    }
+
+    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
+        return createWindowsBatFile(creds.getUsername(), Secret.toString(creds.getPassword()));
+    }
+
+    private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
         File askpass = File.createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
@@ -2017,6 +2046,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public boolean deleteBranch;
             public List<String> sparseCheckoutPaths = Collections.emptyList();
             public Integer timeout;
+            public String lfsRemote;
 
             public CheckoutCommand ref(String ref) {
                 this.ref = ref;
@@ -2040,6 +2070,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             public CheckoutCommand timeout(Integer timeout) {
                 this.timeout = timeout;
+                return this;
+            }
+
+            public CheckoutCommand lfsRemote(String lfsRemote) {
+                this.lfsRemote = lfsRemote;
                 return this;
             }
 
@@ -2073,11 +2108,19 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     // Will activate or deactivate sparse checkout depending on the given paths
                     sparseCheckout(sparseCheckoutPaths);
 
+                    EnvVars checkoutEnv = environment;
+                    if (lfsRemote != null) {
+                        // Disable the git-lfs smudge filter because it is much slower on
+                        // certain OSes than doing a single "git lfs pull" after checkout.
+                        checkoutEnv = new EnvVars(checkoutEnv);
+                        checkoutEnv.put("GIT_LFS_SKIP_SMUDGE", "1");
+                    }
+
                     if (branch!=null && deleteBranch) {
                         // First, checkout to detached HEAD, so we can delete the branch.
                         ArgumentListBuilder args = new ArgumentListBuilder();
                         args.add("checkout", "-f", ref);
-                        launchCommandIn(args, workspace, environment, timeout);
+                        launchCommandIn(args, workspace, checkoutEnv, timeout);
 
                         // Second, check to see if the branch actually exists, and then delete it if it does.
                         for (Branch b : getBranches()) {
@@ -2095,7 +2138,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                         args.add("-f");
                     }
                     args.add(ref);
-                    launchCommandIn(args, workspace, environment, timeout);
+                    launchCommandIn(args, workspace, checkoutEnv, timeout);
+
+                    if (lfsRemote != null) {
+                        final String url = getRemoteUrl(lfsRemote);
+                        StandardCredentials cred = credentials.get(url);
+                        if (cred == null) cred = defaultCredentials;
+                        ArgumentListBuilder lfsArgs = new ArgumentListBuilder();
+                        lfsArgs.add("lfs");
+                        lfsArgs.add("pull");
+                        lfsArgs.add(lfsRemote);
+                        try {
+                            launchCommandWithCredentials(lfsArgs, workspace, cred, new URIish(url), timeout);
+                        } catch (URISyntaxException e) {
+                            throw new GitException("Invalid URL " + url, e);
+                        }
+                    }
                 } catch (GitException e) {
                     if (Pattern.compile("index\\.lock").matcher(e.getMessage()).find()) {
                         throw new GitLockFailedException("Could not lock repository. Please try again", e);
