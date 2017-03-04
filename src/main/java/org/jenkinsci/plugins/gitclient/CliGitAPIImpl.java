@@ -1587,7 +1587,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("@echo off");
             w.println("type " + passphrase.getAbsolutePath());
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
@@ -1599,7 +1599,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("#!/bin/sh");
             w.println("cat " + passphrase.getAbsolutePath());
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
@@ -1613,7 +1613,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("@if (%arg:~0,8%)==(Username) type " + usernameFile.getAbsolutePath());
             w.println("@if (%arg:~0,8%)==(Password) type " + passwordFile.getAbsolutePath());
         }
-        askpass.setExecutable(true);
+        askpass.setExecutable(true, true);
         return askpass;
     }
 
@@ -1625,7 +1625,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(userName));
             w.println("@if (%arg:~0,8%)==(Password) echo " + quoteWindowsCredentials(password));
         }
-        askpass.setExecutable(true);
+        askpass.setExecutable(true, true);
         return askpass;
     }
 
@@ -1641,7 +1641,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("Password*) cat " + passwordFile.getAbsolutePath() + " ;;");
             w.println("esac");
         }
-        askpass.setExecutable(true);
+        askpass.setExecutable(true, true);
         return askpass;
     }
 
@@ -1802,7 +1802,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("@echo off");
             w.println("\"" + sshexe.getAbsolutePath() + "\" -i \"" + key.getAbsolutePath() +"\" -l \"" + user + "\" -o StrictHostKeyChecking=no %* ");
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
@@ -1817,7 +1817,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("fi");
             w.println("ssh -i \"" + key.getAbsolutePath() + "\" -l \"" + user + "\" -o StrictHostKeyChecking=no \"$@\"");
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
