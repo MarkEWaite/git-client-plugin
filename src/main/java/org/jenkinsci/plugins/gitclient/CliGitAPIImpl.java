@@ -1392,10 +1392,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
+        if (isWindows()) {
+            return Files.createTempFile(tmpPath, prefix, suffix).toFile();
+        }
         Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
         FileAttribute fileAttribute = PosixFilePermissions.asFileAttribute(ownerOnly);
-        File tempFile = Files.createTempFile(tmpPath, prefix, suffix, fileAttribute).toFile();
-        return tempFile;
+        return Files.createTempFile(tmpPath, prefix, suffix, fileAttribute).toFile();
     }
 
     private void deleteTempFile(File tempFile) {
