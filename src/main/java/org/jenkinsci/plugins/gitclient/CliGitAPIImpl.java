@@ -1384,11 +1384,23 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         createNote(note,namespace,"add");
     }
 
+    private File createTempFileInSystemDir(String prefix, String suffix) throws IOException {
+        if (isWindows()) {
+            return Files.createTempFile(prefix, suffix).toFile();
+        }
+        Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
+        FileAttribute fileAttribute = PosixFilePermissions.asFileAttribute(ownerOnly);
+        return Files.createTempFile(prefix, suffix, fileAttribute).toFile();
+    }
+
     private File createTempFile(String prefix, String suffix) throws IOException {
+        if (workspace == null) {
+            return createTempFileInSystemDir(prefix, suffix);
+        }
         File workspaceTmp = new File(workspace.getAbsolutePath() + "@tmp");
         if (!workspaceTmp.isDirectory() && !workspaceTmp.mkdirs()) {
             if (!workspaceTmp.isDirectory()) {
-                throw new IOException("Failed to create " + workspaceTmp);
+                return createTempFileInSystemDir(prefix, suffix);
             }
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
