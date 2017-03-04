@@ -1660,7 +1660,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     private File createPassphraseFile(SSHUserPrivateKey sshUser) throws IOException {
         File passphraseFile = createTempFile("phrase", ".txt");
-        listener.getLogger().println(MessageFormat.format("Writing passphrase '{0}' to '{1}'", sshUser.getPassphrase(), passphraseFile));
         try (PrintWriter w = new PrintWriter(passphraseFile, "UTF-8")) {
             w.println(Secret.toString(sshUser.getPassphrase()));
         }
@@ -1669,7 +1668,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     private File createUsernameFile(StandardUsernamePasswordCredentials userPass) throws IOException {
         File usernameFile = createTempFile("username", ".txt");
-        listener.getLogger().println(MessageFormat.format("Writing username '{0}' to '{1}'", userPass.getUsername(), usernameFile));
         try (PrintWriter w = new PrintWriter(usernameFile, "UTF-8")) {
             w.println(userPass.getUsername());
         }
@@ -1678,7 +1676,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     private File createPasswordFile(StandardUsernamePasswordCredentials userPass) throws IOException {
         File passwordFile = createTempFile("password", ".txt");
-        listener.getLogger().println(MessageFormat.format("Writing password '{0}' to '{1}'", Secret.toString(userPass.getPassword()), passwordFile));
         try (PrintWriter w = new PrintWriter(passwordFile, "UTF-8")) {
             w.println(Secret.toString(userPass.getPassword()));
         }
