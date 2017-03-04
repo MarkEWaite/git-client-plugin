@@ -40,6 +40,12 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1385,7 +1391,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 throw new IOException("Failed to create " + workspaceTmp);
             }
         }
-        File tempFile = File.createTempFile(prefix, suffix, workspaceTmp);
+        Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
+        Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
+        FileAttribute fileAttribute = PosixFilePermissions.asFileAttribute(ownerOnly);
+        File tempFile = Files.createTempFile(tmpPath, prefix, suffix, fileAttribute).toFile();
         return tempFile;
     }
 
