@@ -1654,10 +1654,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return askpass;
     }
 
-    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
-        return createWindowsBatFile(creds.getUsername(), Secret.toString(creds.getPassword()));
-    }
-
     private File createPassphraseFile(SSHUserPrivateKey sshUser) throws IOException {
         File passphraseFile = createTempFile("phrase", ".txt");
         try (PrintWriter w = new PrintWriter(passphraseFile, "UTF-8")) {
