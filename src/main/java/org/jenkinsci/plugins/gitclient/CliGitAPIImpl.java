@@ -1378,6 +1378,17 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         createNote(note,namespace,"add");
     }
 
+    private File createTempFile(String prefix, String suffix) throws IOException {
+        File workspaceTmp = new File(workspace.getAbsolutePath() + "@tmp");
+        if (!workspaceTmp.isDirectory() && !workspaceTmp.mkdirs()) {
+            if (!workspaceTmp.isDirectory()) {
+                throw new IOException("Failed to create " + workspaceTmp);
+            }
+        }
+        File tempFile = File.createTempFile(prefix, suffix, workspaceTmp);
+        return tempFile;
+    }
+
     private void deleteTempFile(File tempFile) {
         if (tempFile != null && !tempFile.delete() && tempFile.exists()) {
             listener.getLogger().println("[WARNING] temp file " + tempFile + " not deleted");
@@ -1387,7 +1398,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private void createNote(String note, String namespace, String command ) throws GitException, InterruptedException {
         File msg = null;
         try {
-            msg = File.createTempFile("git-note", "txt", workspace);
+            msg = createTempFile("git-note", "txt");
             FileUtils.writeStringToFile(msg,note);
             launchCommand("notes", "--ref=" + namespace, command, "-F", msg.getAbsolutePath());
         } catch (IOException | GitException e) {
@@ -1536,7 +1547,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createSshKeyFile(File key, SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
-        key = File.createTempFile("ssh", "key");
+        key = createTempFile("ssh", "key");
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
             List<String> privateKeys = sshUser.getPrivateKeys();
             for (String s : privateKeys) {
@@ -1581,7 +1592,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
-        File ssh = File.createTempFile("pass", ".sh");
+        File ssh = createTempFile("pass", ".sh");
         listener.getLogger().println(MessageFormat.format("Writing 'cat {0}' to '{1}'", passphrase.getAbsolutePath(), ssh));
         try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
             // avoid echoing command as part of the password
@@ -1596,7 +1607,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             StandardUsernamePasswordCredentials creds,
             File usernameFile,
             File passwordFile) throws IOException {
-        File askpass = File.createTempFile("pass", ".bat");
+        File askpass = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
             w.println("@if (%arg:~0,8%)==(Username) type " + usernameFile.getAbsolutePath());
@@ -1608,7 +1619,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     /* Package protected for testability */
     File createWindowsBatFile(String userName, String password) throws IOException {
-        File askpass = File.createTempFile("pass", ".bat");
+        File askpass = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
             w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(userName));
@@ -1622,7 +1633,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             StandardUsernamePasswordCredentials creds,
             File usernameFile,
             File passwordFile) throws IOException {
-        File askpass = File.createTempFile("pass", ".sh");
+        File askpass = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("case \"$1\" in");
@@ -1639,7 +1650,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createPassphraseFile(SSHUserPrivateKey sshUser) throws IOException {
-        File passphraseFile = workspace.createTempFile("phrase", ".txt");
+        File passphraseFile = createTempFile("phrase", ".txt");
         listener.getLogger().println(MessageFormat.format("Writing passphrase '{0}' to '{1}'", sshUser.getPassphrase(), passphraseFile));
         try (PrintWriter w = new PrintWriter(passphraseFile, "UTF-8")) {
             w.println(Secret.toString(sshUser.getPassphrase()));
@@ -1648,7 +1659,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUsernameFile(StandardUsernamePasswordCredentials userPass) throws IOException {
-        File usernameFile = workspace.createTempFile("username", ".txt");
+        File usernameFile = createTempFile("username", ".txt");
         listener.getLogger().println(MessageFormat.format("Writing username '{0}' to '{1}'", userPass.getUsername(), usernameFile));
         try (PrintWriter w = new PrintWriter(usernameFile, "UTF-8")) {
             w.println(userPass.getUsername());
@@ -1657,7 +1668,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createPasswordFile(StandardUsernamePasswordCredentials userPass) throws IOException {
-        File passwordFile = workspace.createTempFile("password", ".txt");
+        File passwordFile = createTempFile("password", ".txt");
         listener.getLogger().println(MessageFormat.format("Writing password '{0}' to '{1}'", Secret.toString(userPass.getPassword()), passwordFile));
         try (PrintWriter w = new PrintWriter(passwordFile, "UTF-8")) {
             w.println(Secret.toString(userPass.getPassword()));
@@ -1783,7 +1794,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsGitSSH(File key, String user) throws IOException {
-        File ssh = File.createTempFile("ssh", ".bat");
+        File ssh = createTempFile("ssh", ".bat");
 
         File sshexe = getSSHExecutable();
 
@@ -1796,7 +1807,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixGitSSH(File key, String user) throws IOException {
-        File ssh = File.createTempFile("ssh", ".sh");
+        File ssh = createTempFile("ssh", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             // ${SSH_ASKPASS} might be ignored if ${DISPLAY} is not set
@@ -2393,7 +2404,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public void commit(String message) throws GitException, InterruptedException {
         File f = null;
         try {
-            f = File.createTempFile("gitcommit", ".txt");
+            f = createTempFile("gitcommit", ".txt");
             try (FileOutputStream fos = new FileOutputStream(f)) {
                 fos.write(message.getBytes(Charset.defaultCharset().toString()));
             }
