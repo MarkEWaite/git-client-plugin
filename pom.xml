@@ -43,6 +43,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <argLine>-Dfile.encoding=${project.build.sourceEncoding}</argLine>
+    <concurrency>1C</concurrency>
     <maven-project-info-reports-plugin.version>2.9</maven-project-info-reports-plugin.version>
     <jacoco-maven-plugin.version>0.7.7.201606060606</jacoco-maven-plugin.version>
     <jenkins.version>1.625.3</jenkins.version>
