@@ -1594,9 +1594,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = createTempFile("pass", ".sh");
-        listener.getLogger().println(MessageFormat.format("Writing 'cat {0}' to '{1}'", passphrase.getAbsolutePath(), ssh));
         try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
-            // avoid echoing command as part of the password
             w.println("#!/bin/sh");
             w.println("cat " + passphrase.getAbsolutePath());
         }
@@ -1604,10 +1602,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return ssh;
     }
 
-    private File createWindowsStandardAskpass(
-            StandardUsernamePasswordCredentials creds,
-            File usernameFile,
-            File passwordFile) throws IOException {
+    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds, File usernameFile, File passwordFile) throws IOException {
         File askpass = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
@@ -1618,10 +1613,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return askpass;
     }
 
-    private File createUnixStandardAskpass(
-            StandardUsernamePasswordCredentials creds,
-            File usernameFile,
-            File passwordFile) throws IOException {
+    private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds, File usernameFile, File passwordFile) throws IOException {
         File askpass = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
@@ -2752,5 +2744,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private boolean isWindows() {
         return File.pathSeparatorChar==';';
     }
+
 
 }
