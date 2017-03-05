@@ -1581,22 +1581,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    /* package protected for testability */
-    String quoteWindowsCredentials(String str) {
-        // Quote special characters for Windows Batch Files
-        // See: http://ss64.com/nt/syntax-esc.html
-        String quoted = str.replace("%", "%%")
-                        .replace("^", "^^")
-                        .replace(" ", "^ ")
-                        .replace("\t", "^\t")
-                        .replace("\\", "^\\")
-                        .replace("&", "^&")
-                        .replace("|", "^|")
-                        .replace(">", "^>")
-                        .replace("<", "^<");
-        return quoted;
-    }
-
     private String quoteUnixCredentials(String str) {
         // Assumes string will be used inside of single quotes, as it will
         // only replace "'" substrings.
@@ -1635,18 +1619,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("@set arg=%~1");
             w.println("@if (%arg:~0,8%)==(Username) type " + usernameFile.getAbsolutePath());
             w.println("@if (%arg:~0,8%)==(Password) type " + passwordFile.getAbsolutePath());
-        }
-        askpass.setExecutable(true, true);
-        return askpass;
-    }
-
-    /* Package protected for testability */
-    File createWindowsBatFile(String userName, String password) throws IOException {
-        File askpass = createTempFile("pass", ".bat");
-        try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
-            w.println("@set arg=%~1");
-            w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(userName));
-            w.println("@if (%arg:~0,8%)==(Password) echo " + quoteWindowsCredentials(password));
         }
         askpass.setExecutable(true, true);
         return askpass;
