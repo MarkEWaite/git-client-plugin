@@ -1581,12 +1581,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    private String quoteUnixCredentials(String str) {
-        // Assumes string will be used inside of single quotes, as it will
-        // only replace "'" substrings.
-        return str.replace("'", "'\\''");
-    }
-
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = File.createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
