@@ -1,8 +1,5 @@
 package org.jenkinsci.plugins.gitclient;
 
-import hudson.EnvVars;
-import hudson.model.TaskListener;
-import hudson.util.StreamTaskListener;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
