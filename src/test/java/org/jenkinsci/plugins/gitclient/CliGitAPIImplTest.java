@@ -6,9 +6,8 @@ import hudson.util.StreamTaskListener;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import static junit.framework.TestCase.assertTrue;
 import org.apache.commons.lang.SystemUtils;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
