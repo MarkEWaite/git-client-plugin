@@ -3,7 +3,6 @@ package org.jenkinsci.plugins.gitclient;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
-import com.cloudbees.plugins.credentials.common.UsernameCredentials;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -52,8 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -1454,7 +1451,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 SSHUserPrivateKey sshUser = (SSHUserPrivateKey) credentials;
                 listener.getLogger().println("using GIT_SSH to set credentials " + sshUser.getDescription());
 
-                key = createSshKeyFile(key, sshUser);
+                key = createSshKeyFile(sshUser);
                 if (launcher.isUnix()) {
                     ssh =  createUnixGitSSH(key, sshUser.getUsername());
                     pass =  createUnixSshAskpass(sshUser);
@@ -1466,6 +1463,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 env = new EnvVars(env);
                 env.put("GIT_SSH", ssh.getAbsolutePath());
                 env.put("SSH_ASKPASS", pass.getAbsolutePath());
+
+                // supply a dummy value for DISPLAY if not already present
+                // or else ssh will not invoke SSH_ASKPASS
+                if (!env.containsKey("DISPLAY")) {
+                    env.put("DISPLAY", ":");
+                }
 
             } else if (credentials instanceof StandardUsernamePasswordCredentials) {
                 StandardUsernamePasswordCredentials userPass = (StandardUsernamePasswordCredentials) credentials;
@@ -1524,8 +1527,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
     }
 
-    private File createSshKeyFile(File key, SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
-        key = File.createTempFile("ssh", "key");
+    private File createSshKeyFile(SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
+        File key = File.createTempFile("ssh", "key");
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
             List<String> privateKeys = sshUser.getPrivateKeys();
             for (String s : privateKeys) {
@@ -1536,10 +1539,20 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    private String quoteWindowsCredentials(String str) {
-        // Assumes the only meaningful character is %, this may be
-        // insufficient.
-        return str.replace("%", "%%");
+    /* package protected for testability */
+    String quoteWindowsCredentials(String str) {
+        // Quote special characters for Windows Batch Files
+        // See: http://ss64.com/nt/syntax-esc.html
+        String quoted = str.replace("%", "%%")
+                        .replace("^", "^^")
+                        .replace(" ", "^ ")
+                        .replace("\t", "^\t")
+                        .replace("\\", "^\\")
+                        .replace("&", "^&")
+                        .replace("|", "^|")
+                        .replace(">", "^>")
+                        .replace("<", "^<");
+        return quoted;
     }
 
     private String quoteUnixCredentials(String str) {
@@ -1551,7 +1564,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
         File ssh = File.createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
-            w.println("echo \"" + quoteWindowsCredentials(Secret.toString(sshUser.getPassphrase())) + "\"");
+            // avoid echoing command as part of the password
+            w.println("@echo off");
+            // no need for quotes on windows echo -- they will get echoed too
+            w.println("echo " + Secret.toString(sshUser.getPassphrase()));
             w.flush();
         }
         ssh.setExecutable(true);
@@ -1568,15 +1584,20 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return ssh;
     }
 
-    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
+    /* Package protected for testability */
+    File createWindowsBatFile(String userName, String password) throws IOException {
         File askpass = File.createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
-            w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(creds.getUsername()));
-            w.println("@if (%arg:~0,8%)==(Password) echo " + quoteWindowsCredentials(Secret.toString(creds.getPassword())));
+            w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(userName));
+            w.println("@if (%arg:~0,8%)==(Password) echo " + quoteWindowsCredentials(password));
         }
         askpass.setExecutable(true);
         return askpass;
+    }
+
+    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
+        return createWindowsBatFile(creds.getUsername(), Secret.toString(creds.getPassword()));
     }
 
     private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
@@ -1962,6 +1983,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public boolean deleteBranch;
             public List<String> sparseCheckoutPaths = Collections.emptyList();
             public Integer timeout;
+            public String lfsRemote;
 
             public CheckoutCommand ref(String ref) {
                 this.ref = ref;
@@ -1985,6 +2007,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             public CheckoutCommand timeout(Integer timeout) {
                 this.timeout = timeout;
+                return this;
+            }
+
+            public CheckoutCommand lfsRemote(String lfsRemote) {
+                this.lfsRemote = lfsRemote;
                 return this;
             }
 
@@ -2018,11 +2045,19 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     // Will activate or deactivate sparse checkout depending on the given paths
                     sparseCheckout(sparseCheckoutPaths);
 
+                    EnvVars checkoutEnv = environment;
+                    if (lfsRemote != null) {
+                        // Disable the git-lfs smudge filter because it is much slower on
+                        // certain OSes than doing a single "git lfs pull" after checkout.
+                        checkoutEnv = new EnvVars(checkoutEnv);
+                        checkoutEnv.put("GIT_LFS_SKIP_SMUDGE", "1");
+                    }
+
                     if (branch!=null && deleteBranch) {
                         // First, checkout to detached HEAD, so we can delete the branch.
                         ArgumentListBuilder args = new ArgumentListBuilder();
                         args.add("checkout", "-f", ref);
-                        launchCommandIn(args, workspace, environment, timeout);
+                        launchCommandIn(args, workspace, checkoutEnv, timeout);
 
                         // Second, check to see if the branch actually exists, and then delete it if it does.
                         for (Branch b : getBranches()) {
@@ -2040,7 +2075,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                         args.add("-f");
                     }
                     args.add(ref);
-                    launchCommandIn(args, workspace, environment, timeout);
+                    launchCommandIn(args, workspace, checkoutEnv, timeout);
+
+                    if (lfsRemote != null) {
+                        final String url = getRemoteUrl(lfsRemote);
+                        StandardCredentials cred = credentials.get(url);
+                        if (cred == null) cred = defaultCredentials;
+                        ArgumentListBuilder lfsArgs = new ArgumentListBuilder();
+                        lfsArgs.add("lfs");
+                        lfsArgs.add("pull");
+                        lfsArgs.add(lfsRemote);
+                        try {
+                            launchCommandWithCredentials(lfsArgs, workspace, cred, new URIish(url), timeout);
+                        } catch (URISyntaxException e) {
+                            throw new GitException("Invalid URL " + url, e);
+                        }
+                    }
                 } catch (GitException e) {
                     if (Pattern.compile("index\\.lock").matcher(e.getMessage()).find()) {
                         throw new GitLockFailedException("Could not lock repository. Please try again", e);
