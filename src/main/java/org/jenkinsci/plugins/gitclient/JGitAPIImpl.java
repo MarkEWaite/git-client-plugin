@@ -323,7 +323,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if (repo.resolve(ref) != null) {
                     // ref is either an existing reference or a shortcut to a tag or branch (without refs/heads/)
                     git(repo).checkout().setName(ref).setForce(true).call();
-                    git(repo).submoduleInit().call();
                     return;
                 }
 
@@ -351,7 +350,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     .setName(ref)
                     .setUpstreamMode(SetupUpstreamMode.SET_UPSTREAM)
                     .setStartPoint(matchingRemoteBranch).call();
-                git(repo).submoduleInit().call();
                 return;
             } catch (CheckoutConflictException e) {
                 if (repo != null) {
@@ -390,7 +388,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         try (Repository repo = getRepository()) {
             if (ref == null) ref = repo.resolve(HEAD).name();
             git(repo).checkout().setName(branch).setCreateBranch(true).setForce(true).setStartPoint(ref).call();
-            git(repo).submoduleInit().call();
         } catch (IOException | GitAPIException e) {
             throw new GitException("Could not checkout " + branch + " with start point " + ref, e);
         }
