@@ -1213,6 +1213,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return !"false".equals(line);
     }
 
+    /**
+     * Returns true if this repository is configured as a shallow clone.
+     * Shallow clone requires command line git 1.9 or later.
+     * @return true if this repository is configured as a shallow clone
+     */
     public boolean isShallowRepository() {
         return new File(workspace, pathJoin(".git", "shallow")).exists();
     }
@@ -1488,7 +1493,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 SSHUserPrivateKey sshUser = (SSHUserPrivateKey) credentials;
                 listener.getLogger().println("using GIT_SSH to set credentials " + sshUser.getDescription());
 
-                key = createSshKeyFile(key, sshUser);
+                key = createSshKeyFile(sshUser);
                 passphrase = createPassphraseFile(sshUser);
                 if (launcher.isUnix()) {
                     ssh =  createUnixGitSSH(key, sshUser.getUsername());
@@ -1569,8 +1574,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
     }
 
-    private File createSshKeyFile(File key, SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
-        key = createTempFile("ssh", "key");
+    private File createSshKeyFile(SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
+        File key = File.createTempFile("ssh", "key");
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
             List<String> privateKeys = sshUser.getPrivateKeys();
             for (String s : privateKeys) {
