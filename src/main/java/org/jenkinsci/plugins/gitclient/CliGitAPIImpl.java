@@ -1,3 +1,4 @@
+
 package org.jenkinsci.plugins.gitclient;
 
 
@@ -1246,6 +1247,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return !"false".equals(line);
     }
 
+    /**
+     * Returns true if this repository is configured as a shallow clone.
+     * Shallow clone requires command line git 1.9 or later.
+     * @return true if this repository is configured as a shallow clone
+     */
     public boolean isShallowRepository() {
         return new File(workspace, pathJoin(".git", "shallow")).exists();
     }
@@ -1490,7 +1496,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 SSHUserPrivateKey sshUser = (SSHUserPrivateKey) credentials;
                 listener.getLogger().println("using GIT_SSH to set credentials " + sshUser.getDescription());
 
-                key = createSshKeyFile(key, sshUser);
+                key = createSshKeyFile(sshUser);
                 if (launcher.isUnix()) {
                     ssh =  createUnixGitSSH(key, sshUser.getUsername());
                     pass =  createUnixSshAskpass(sshUser);
@@ -1566,8 +1572,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
     }
 
-    private File createSshKeyFile(File key, SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
-        key = File.createTempFile("ssh", "key");
+    private File createSshKeyFile(SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
+        File key = File.createTempFile("ssh", "key");
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
             List<String> privateKeys = sshUser.getPrivateKeys();
             for (String s : privateKeys) {
@@ -2641,6 +2647,37 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 }
             }
 
+        }
+        return references;
+    }
+
+    @Override
+    public Map<String, String> getRemoteSymbolicReferences(String url, String pattern)
+            throws GitException, InterruptedException {
+        Map<String, String> references = new HashMap<>();
+        if (isAtLeastVersion(2, 8, 0, 0)) {
+            // --symref is only understood by ls-remote starting from git 2.8.0
+            // https://github.com/git/git/blob/afd6726309/Documentation/RelNotes/2.8.0.txt#L72-L73
+            ArgumentListBuilder args = new ArgumentListBuilder("ls-remote");
+            args.add("--symref");
+            args.add(url);
+            if (pattern != null) {
+                args.add(pattern);
+            }
+
+            StandardCredentials cred = credentials.get(url);
+            if (cred == null) cred = defaultCredentials;
+
+            String result = launchCommandWithCredentials(args, null, cred, url);
+
+            String[] lines = result.split("\n");
+            Pattern symRefPattern = Pattern.compile("^ref:\\s+([^ ]+)\\s+([^ ]+)$");
+            for (String line : lines) {
+                Matcher matcher = symRefPattern.matcher(line);
+                if (matcher.matches()) {
+                    references.put(matcher.group(2), matcher.group(1));
+                }
+            }
         }
         return references;
     }
