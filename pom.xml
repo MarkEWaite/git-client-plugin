@@ -165,6 +165,41 @@
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.19.1</version>
+          <configuration>
+            <excludes>
+              <exclude>CliGitAPIImplAuthTest</exclude>
+              <!-- <exclude>CliGitAPIImplTest</exclude> -->
+              <exclude>CredentialsProviderImplTest</exclude>
+              <exclude>CredentialsTest</exclude>
+              <exclude>FilePermissionsTest</exclude>
+              <exclude>GitAPIBadInitTest</exclude>
+              <exclude>GitAPITestCase</exclude>
+              <!-- <exclude>GitClientTest</exclude> -->
+              <exclude>GitExceptionTest</exclude>
+              <exclude>GitLockFailedExceptionTest</exclude>
+              <exclude>GitObjectTest</exclude>
+              <exclude>GitTest</exclude>
+              <exclude>GitToolTest</exclude>
+              <exclude>GitURIRequirementsBuilderTest</exclude>
+              <exclude>IndexEntryTest</exclude>
+              <exclude>InjectedTest</exclude>
+              <!-- <exclude>JGitApacheAPIImplTest</exclude> -->
+              <!-- <exclude>JGitAPIImplTest</exclude> -->
+              <exclude>LegacyCompatibleGitAPIImplJGitTest</exclude>
+              <exclude>LegacyCompatibleGitAPIImplTest</exclude>
+              <exclude>LogHandlerTest</exclude>
+              <!-- <exclude>MergeCommandTest</exclude> -->
+              <exclude>NetrcTest</exclude>
+              <exclude>PreemptiveAuthHttpClientConnectionTest</exclude>
+              <exclude>PushSimpleTest</exclude>
+              <exclude>PushTest</exclude>
+              <exclude>RemotingTest</exclude>
+              <exclude>RevisionTest</exclude>
+              <exclude>SmartCredentialsProviderTest</exclude>
+              <exclude>TagTest</exclude>
+              <exclude>WarnTempDirValueTest</exclude>
+            </excludes>
+          </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-javadoc-plugin</artifactId>
@@ -203,17 +238,7 @@
               <goal>check</goal>
             </goals>
             <configuration>
-            <rules>
-              <rule>
-                <element>BUNDLE</element>
-                  <limits>
-                    <limit>
-                      <counter>COMPLEXITY</counter>
-                      <value>COVEREDRATIO</value>
-                      <minimum>0.40</minimum>
-                    </limit>
-                  </limits>
-                </rule>
+              <rules>
               </rules>
             </configuration>
           </execution>
