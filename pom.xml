@@ -181,6 +181,7 @@
               <exclude>GitToolTest</exclude>
               <exclude>GitURIRequirementsBuilderTest</exclude>
               <exclude>IndexEntryTest</exclude>
+              <exclude>InjectedTest</exclude>
               <exclude>JGitApacheAPIImplTest</exclude>
               <exclude>JGitAPIImplTest</exclude>
               <exclude>LegacyCompatibleGitAPIImplJGitTest</exclude>
