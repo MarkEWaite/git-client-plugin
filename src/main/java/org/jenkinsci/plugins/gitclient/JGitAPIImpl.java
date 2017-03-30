@@ -30,6 +30,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
@@ -1266,6 +1268,19 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             git.clean().setCleanDirectories(true).setIgnore(false).call();
         } catch (GitAPIException e) {
             throw new GitException(e);
+        // Fix JENKINS-43198:
+        // don't throw a "Could not delete file" if the file has actually been deleted
+        // See JGit bug 514434 https://bugs.eclipse.org/bugs/show_bug.cgi?id=514434
+        } catch(JGitInternalException e) {
+            String expected = "Could not delete file ";
+            if (e.getMessage().startsWith(expected)) {
+                String path = e.getMessage().substring(expected.length());
+                if (Files.exists(Paths.get(path))) {
+                    throw e;
+                } // else don't throw, everything is ok.
+            } else {
+                throw e;
+            }
         }
     }
 
