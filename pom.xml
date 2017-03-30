@@ -167,6 +167,7 @@
           <version>2.19.1</version>
           <configuration>
             <excludes>
+              <exclude>CliGitAPIImplAuthTest</exclude>
               <exclude>CliGitAPIImplTest</exclude>
               <exclude>CredentialsProviderImplTest</exclude>
               <exclude>CredentialsTest</exclude>
@@ -181,6 +182,7 @@
               <exclude>GitToolTest</exclude>
               <exclude>GitURIRequirementsBuilderTest</exclude>
               <exclude>IndexEntryTest</exclude>
+              <exclude>InjectedTest</exclude>
               <exclude>JGitApacheAPIImplTest</exclude>
               <exclude>JGitAPIImplTest</exclude>
               <exclude>LegacyCompatibleGitAPIImplJGitTest</exclude>
@@ -194,6 +196,7 @@
               <exclude>RemotingTest</exclude>
               <exclude>RevisionTest</exclude>
               <exclude>SmartCredentialsProviderTest</exclude>
+              <!-- <exclude>SubmoduleTest</exclude> -->
               <exclude>TagTest</exclude>
               <exclude>WarnTempDirValueTest</exclude>
             </excludes>
