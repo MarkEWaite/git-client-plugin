@@ -2184,7 +2184,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 }
 
                 File sparseCheckoutFile = new File(workspace, SPARSE_CHECKOUT_FILE_PATH);
-                try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(sparseCheckoutFile, false), "UTF-8"))) {
+                try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(sparseCheckoutFile.toPath()), "UTF-8"))) {
 		    for(String path : paths) {
 			writer.println(path);
 		    }
@@ -2384,9 +2384,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public void commit(String message) throws GitException, InterruptedException {
         File f = null;
         try {
-            f = createTempFile("gitcommit", ".txt");
-            try (FileOutputStream fos = new FileOutputStream(f)) {
-                fos.write(message.getBytes(Charset.defaultCharset().toString()));
+            f = File.createTempFile("gitcommit", ".txt");
+            try (OutputStream out = Files.newOutputStream(f.toPath())) {
+                out.write(message.getBytes(Charset.defaultCharset().toString()));
             }
             launchCommand("commit", "-F", f.getAbsolutePath());
 
