@@ -1586,8 +1586,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /* package protected for testability */
-    String quoteWindowsCredentials(String str) {
+    String escapeWindowsCharsForUnquotedString(String str) {
         // Quote special characters for Windows Batch Files
+        // See: http://stackoverflow.com/questions/562038/escaping-double-quotes-in-batch-script
         // See: http://ss64.com/nt/syntax-esc.html
         String quoted = str.replace("%", "%%")
                         .replace("^", "^^")
@@ -1596,6 +1597,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                         .replace("\\", "^\\")
                         .replace("&", "^&")
                         .replace("|", "^|")
+                        .replace("\"", "^\"")
                         .replace(">", "^>")
                         .replace("<", "^<");
         return quoted;
@@ -1612,8 +1614,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             // avoid echoing command as part of the password
             w.println("@echo off");
-            // no need for quotes on windows echo -- they will get echoed too
-            w.println("echo " + Secret.toString(sshUser.getPassphrase()));
+            // no surrounding double quotes on windows echo -- they are echoed too
+            w.println("echo " + escapeWindowsCharsForUnquotedString(Secret.toString(sshUser.getPassphrase())));
             w.flush();
         }
         ssh.setExecutable(true);
@@ -1635,8 +1637,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         File askpass = File.createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
-            w.println("@if (%arg:~0,8%)==(Username) echo " + quoteWindowsCredentials(userName));
-            w.println("@if (%arg:~0,8%)==(Password) echo " + quoteWindowsCredentials(password));
+            w.println("@if (%arg:~0,8%)==(Username) echo " + escapeWindowsCharsForUnquotedString(userName));
+            w.println("@if (%arg:~0,8%)==(Password) echo " + escapeWindowsCharsForUnquotedString(password));
         }
         askpass.setExecutable(true);
         return askpass;
