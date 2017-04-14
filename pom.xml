@@ -122,13 +122,13 @@
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
-      <version>3.0.1</version>
+      <version>3.0.2</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
       <artifactId>ssh-credentials</artifactId>
-      <version>1.12</version>
+      <version>1.13</version>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
