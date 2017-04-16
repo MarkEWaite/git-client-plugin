@@ -411,6 +411,8 @@ public class CredentialsTest {
         assertTrue("No file " + fileToCheck + ", has " + listDir(repo), clonedFile.exists());
         /* prune opens a remote connection to list remote branches */
         git.prune(new RemoteConfig(git.withRepository((gitRepo, unusedChannel) -> gitRepo.getConfig()), "origin"));
+        // git.prune(new RemoteConfig(git.getRepository().getConfig(), "origin"));
+        assertThat("Credential use not tracked: " + testedCredential.getDescription(), git.getCredentials(), hasItem(testedCredential)); // Check that credentials are correctly tracked
     }
 
     @Test
