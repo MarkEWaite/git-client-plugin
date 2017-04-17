@@ -320,7 +320,7 @@ public class CredentialsTest {
         } else {
             git.addCredentials(gitRepoURL, cred);
         }
-        // assertThat(git.getCredentials(), hasItem(cred)); // API planned for git client 2.5.0
+        assertThat(git.getCredentials(), hasItem(cred));
     }
 
     // @Test
