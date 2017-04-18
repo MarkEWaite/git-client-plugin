@@ -236,6 +236,8 @@
             </goals>
             <configuration>
               <rules>
+                <rule>
+                </rule>
               </rules>
             </configuration>
           </execution>
