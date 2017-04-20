@@ -10,7 +10,7 @@
 
   <groupId>org.jenkins-ci.plugins</groupId>
   <artifactId>git-client</artifactId>
-  <version>2.4.2-SNAPSHOT</version>
+  <version>2.4.3-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
   <name>Jenkins Git client plugin</name>
@@ -153,6 +153,11 @@
       <version>3.0.1u2</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>credentials</artifactId>
+      <version>2.1.13</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -282,6 +287,20 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemProperties>
+            <property>
+              <!-- Prefix git ssh authenticating command line calls with setsid -->
+              <!-- Detaches git from the controlling terminal of the test runner -->
+              <!-- For CredentialsTest with passphrase protected private keys -->
+              <name>org.jenkinsci.plugins.gitclient.CliGitAPIImpl.useSETSID</name>
+              <value>true</value>
+            </property>
+          </systemProperties>
+        </configuration>
       </plugin>
     </plugins>
   </build>
