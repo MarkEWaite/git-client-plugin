@@ -42,6 +42,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -1450,6 +1455,34 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         createNote(note,namespace,"add");
     }
 
+    private File createTempFileInSystemDir(String prefix, String suffix) throws IOException {
+        if (isWindows()) {
+            return Files.createTempFile(prefix, suffix).toFile();
+        }
+        Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
+        FileAttribute fileAttribute = PosixFilePermissions.asFileAttribute(ownerOnly);
+        return Files.createTempFile(prefix, suffix, fileAttribute).toFile();
+    }
+
+    private File createTempFile(String prefix, String suffix) throws IOException {
+        if (workspace == null) {
+            return createTempFileInSystemDir(prefix, suffix);
+        }
+        File workspaceTmp = new File(workspace.getAbsolutePath() + "@tmp");
+        if (!workspaceTmp.isDirectory() && !workspaceTmp.mkdirs()) {
+            if (!workspaceTmp.isDirectory()) {
+                return createTempFileInSystemDir(prefix, suffix);
+            }
+        }
+        Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
+        if (isWindows()) {
+            return Files.createTempFile(tmpPath, prefix, suffix).toFile();
+        }
+        Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
+        FileAttribute fileAttribute = PosixFilePermissions.asFileAttribute(ownerOnly);
+        return Files.createTempFile(tmpPath, prefix, suffix, fileAttribute).toFile();
+    }
+
     private void deleteTempFile(File tempFile) {
         if (tempFile != null && !tempFile.delete() && tempFile.exists()) {
             listener.getLogger().println("[WARNING] temp file " + tempFile + " not deleted");
@@ -1459,7 +1492,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private void createNote(String note, String namespace, String command ) throws GitException, InterruptedException {
         File msg = null;
         try {
-            msg = File.createTempFile("git-note", "txt", workspace);
+            msg = createTempFile("git-note", ".txt");
             FileUtils.writeStringToFile(msg,note);
             launchCommand("notes", "--ref=" + namespace, command, "-F", msg.getAbsolutePath());
         } catch (IOException | GitException e) {
@@ -1600,7 +1633,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createSshKeyFile(SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
-        File key = File.createTempFile("ssh", "key");
+        File key = createTempFile("ssh", ".key");
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
             List<String> privateKeys = sshUser.getPrivateKeys();
             for (String s : privateKeys) {
@@ -1636,7 +1669,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = File.createTempFile("pass", ".bat");
+        File ssh = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             // avoid echoing command as part of the password
             w.println("@echo off");
@@ -1644,29 +1677,29 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("echo " + escapeWindowsCharsForUnquotedString(Secret.toString(sshUser.getPassphrase())));
             w.flush();
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = File.createTempFile("pass", ".sh");
+        File ssh = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("echo '" + quoteUnixCredentials(Secret.toString(sshUser.getPassphrase())) + "'");
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
     /* Package protected for testability */
     File createWindowsBatFile(String userName, String password) throws IOException {
-        File askpass = File.createTempFile("pass", ".bat");
+        File askpass = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
             w.println("@if (%arg:~0,8%)==(Username) echo " + escapeWindowsCharsForUnquotedString(userName));
             w.println("@if (%arg:~0,8%)==(Password) echo " + escapeWindowsCharsForUnquotedString(password));
         }
-        askpass.setExecutable(true);
+        askpass.setExecutable(true, true);
         return askpass;
     }
 
@@ -1675,7 +1708,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
-        File askpass = File.createTempFile("pass", ".sh");
+        File askpass = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("case \"$1\" in");
@@ -1683,7 +1716,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("Password*) echo '" + quoteUnixCredentials(Secret.toString(creds.getPassword())) + "' ;;");
             w.println("esac");
         }
-        askpass.setExecutable(true);
+        askpass.setExecutable(true, true);
         return askpass;
     }
 
@@ -1805,7 +1838,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsGitSSH(File key, String user) throws IOException {
-        File ssh = File.createTempFile("ssh", ".bat");
+        File ssh = createTempFile("ssh", ".bat");
 
         File sshexe = getSSHExecutable();
 
@@ -1813,12 +1846,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("@echo off");
             w.println("\"" + sshexe.getAbsolutePath() + "\" -i \"" + key.getAbsolutePath() +"\" -l \"" + user + "\" -o StrictHostKeyChecking=no %* ");
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
     private File createUnixGitSSH(File key, String user) throws IOException {
-        File ssh = File.createTempFile("ssh", ".sh");
+        File ssh = createTempFile("ssh", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             // ${SSH_ASKPASS} might be ignored if ${DISPLAY} is not set
@@ -1828,7 +1861,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             w.println("fi");
             w.println("ssh -i \"" + key.getAbsolutePath() + "\" -l \"" + user + "\" -o StrictHostKeyChecking=no \"$@\"");
         }
-        ssh.setExecutable(true);
+        ssh.setExecutable(true, true);
         return ssh;
     }
 
@@ -2422,7 +2455,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public void commit(String message) throws GitException, InterruptedException {
         File f = null;
         try {
-            f = File.createTempFile("gitcommit", ".txt");
+            f = createTempFile("gitcommit", ".txt");
             try (OutputStream out = Files.newOutputStream(f.toPath())) {
                 out.write(message.getBytes(Charset.defaultCharset().toString()));
             }
