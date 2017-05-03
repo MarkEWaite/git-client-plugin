@@ -1465,6 +1465,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createTempFile(String prefix, String suffix) throws IOException {
+        return createTempFile(prefix, suffix, false);
+    }
+
+    private File createTempFile(String prefix, String suffix, boolean spacesForbiddenInPath) throws IOException {
         if (workspace == null) {
             return createTempFileInSystemDir(prefix, suffix);
         }
@@ -1476,6 +1480,13 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
         if (isWindows()) {
+            /* Windows git fails its call to GIT_SSH if its absolute
+             * path contains a space.  Use system temp dir if path to
+             * workspace tmp dir contains a space.
+             */
+            if (spacesForbiddenInPath && workspaceTmp.getAbsolutePath().contains(" ")) {
+                return createTempFileInSystemDir(prefix, suffix);
+            }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
         }
         Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
@@ -1669,7 +1680,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = createTempFile("pass", ".bat");
+        File ssh = createTempFile("pass", ".bat", true);
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             // avoid echoing command as part of the password
             w.println("@echo off");
@@ -1693,7 +1704,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     /* Package protected for testability */
     File createWindowsBatFile(String userName, String password) throws IOException {
-        File askpass = createTempFile("pass", ".bat");
+        File askpass = createTempFile("pass", ".bat", true);
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
             w.println("@if (%arg:~0,8%)==(Username) echo " + escapeWindowsCharsForUnquotedString(userName));
@@ -1838,7 +1849,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsGitSSH(File key, String user) throws IOException {
-        File ssh = createTempFile("ssh", ".bat");
+        File ssh = createTempFile("ssh", ".bat", true);
 
         File sshexe = getSSHExecutable();
 
