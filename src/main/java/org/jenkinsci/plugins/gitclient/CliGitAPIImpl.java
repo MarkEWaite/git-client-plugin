@@ -1624,12 +1624,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
+    /* Escape all double quotes in filename, then surround filename in double quotes.
+     * Only useful to prepare filename for reference from a DOS batch file.
+     */
+    private String windowsArgEncodeFileName(String filename) {
+        if (filename.contains("\"")) {
+            filename = filename.replaceAll("\"", "^\"");
+        }
+        return "'" + filename + "'";
+    }
+
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = File.createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
             // avoid echoing command as part of the password
             w.println("@echo off");
-            w.println("type " + passphrase.getAbsolutePath());
+            w.println("type " + windowsArgEncodeFileName(passphrase.getAbsolutePath()));
             w.flush();
         }
         ssh.setExecutable(true, true);
@@ -1660,8 +1670,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         File askpass = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
-            w.println("@if (%arg:~0,8%)==(Username) type " + usernameFile.getAbsolutePath());
-            w.println("@if (%arg:~0,8%)==(Password) type " + passwordFile.getAbsolutePath());
+            w.println("@if (%arg:~0,8%)==(Username) type " + windowsArgEncodeFileName(usernameFile.getAbsolutePath()));
+            w.println("@if (%arg:~0,8%)==(Password) type " + windowsArgEncodeFileName(passwordFile.getAbsolutePath()));
         }
         askpass.setExecutable(true, true);
         return askpass;
