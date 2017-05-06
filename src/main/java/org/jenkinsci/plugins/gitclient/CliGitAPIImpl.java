@@ -1452,6 +1452,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
+        } else if (workspaceTmp.getAbsolutePath().contains("%")) {
+            /* Avoid Linux expansion of % in ssh arguments */
+            return createTempFileInSystemDir(prefix, suffix);
         }
         Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
         FileAttribute fileAttribute = PosixFilePermissions.asFileAttribute(ownerOnly);
@@ -1660,7 +1663,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
-        File ssh = createTempFile("pass", ".sh");
+        File ssh = createTempFile("pass", ".sh", true);
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("cat " + unixArgEncodeFileName(passphrase.getAbsolutePath()));
@@ -1848,7 +1851,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixGitSSH(File key, String user) throws IOException {
-        File ssh = createTempFile("ssh", ".sh");
+        File ssh = createTempFile("ssh", ".sh", true);
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             // ${SSH_ASKPASS} might be ignored if ${DISPLAY} is not set
