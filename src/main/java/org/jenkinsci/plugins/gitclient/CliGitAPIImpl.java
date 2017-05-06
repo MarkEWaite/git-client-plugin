@@ -1429,7 +1429,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return createTempFile(prefix, suffix, false);
     }
 
-    private File createTempFile(String prefix, String suffix, boolean spacesForbiddenInPath) throws IOException {
+    private File createTempFile(String prefix, String suffix, boolean alphanumericPathOnly) throws IOException {
         if (workspace == null) {
             return createTempFileInSystemDir(prefix, suffix);
         }
@@ -1442,10 +1442,13 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
         if (isWindows()) {
             /* Windows git fails its call to GIT_SSH if its absolute
-             * path contains a space.  Use system temp dir if path to
-             * workspace tmp dir contains a space.
+             * path contains certain non-alphanumeric characters like ' '
+             * and '(' and ')'.  Use system temp dir if path to
+             * workspace tmp dir contains non-alphanumeric characters except
+             * some specific characters which are known to work.
+             * See JENKINS-43931 and JENKINS-44041
              */
-            if (spacesForbiddenInPath && workspaceTmp.getAbsolutePath().contains(" ")) {
+            if (alphanumericPathOnly && !workspaceTmp.getAbsolutePath().matches("^[\\p{Alnum}\\/:.]+$")) {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
