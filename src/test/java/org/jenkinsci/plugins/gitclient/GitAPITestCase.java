@@ -3184,13 +3184,16 @@ public abstract class GitAPITestCase extends TestCase {
     }
 
     /**
-     * User interface calls getHeadRev without a workspace while validating user
-     * input. This test showed a null pointer exception in a development version
-     * of credential passing to command line git.
+     * User interface calls getHeadRev without a workspace while
+     * validating user input. This test showed a null pointer
+     * exception in a development version of credential passing to
+     * command line git. The referenced repository is a public
+     * repository, and https access to a public repository is allowed
+     * even if invalid credentials are provided.
      *
      * @throws Exception on test failure
      */
-    public void test_getHeadRevWithInvalidCredential() throws Exception {
+    public void test_getHeadRevFromPublicRepoWithInvalidCredential() throws Exception {
         GitClient remoteGit = Git.with(listener, env).using("git").getClient();
         StandardUsernamePasswordCredentials testCredential = new UsernamePasswordCredentialsImpl(CredentialsScope.GLOBAL, "bad-id", "bad-desc", "bad-user", "bad-password");
         remoteGit.addDefaultCredentials(testCredential);
