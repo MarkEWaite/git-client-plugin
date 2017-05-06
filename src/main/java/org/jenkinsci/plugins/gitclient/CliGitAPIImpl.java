@@ -1624,24 +1624,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    /* package protected for testability */
-    String escapeWindowsCharsForUnquotedString(String str) {
-        // Quote special characters for Windows Batch Files
-        // See: http://stackoverflow.com/questions/562038/escaping-double-quotes-in-batch-script
-        // See: http://ss64.com/nt/syntax-esc.html
-        String quoted = str.replace("%", "%%")
-                        .replace("^", "^^")
-                        .replace(" ", "^ ")
-                        .replace("\t", "^\t")
-                        .replace("\\", "^\\")
-                        .replace("&", "^&")
-                        .replace("|", "^|")
-                        .replace("\"", "^\"")
-                        .replace(">", "^>")
-                        .replace("<", "^<");
-        return quoted;
-    }
-
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = File.createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
