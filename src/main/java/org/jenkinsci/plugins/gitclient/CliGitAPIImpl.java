@@ -1660,11 +1660,21 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return ssh;
     }
 
+    /* Escape all single quotes in filename, then surround filename in single quotes.
+     * Only useful to prepare filename for reference from a shell script.
+     */
+    private String unixArgEncodeFileName(String filename) {
+        if (filename.contains("'")) {
+            filename = filename.replaceAll("'", "\\'");
+        }
+        return "'" + filename + "'";
+    }
+
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
-            w.println("cat " + passphrase.getAbsolutePath());
+            w.println("cat " + unixArgEncodeFileName(passphrase.getAbsolutePath()));
         }
         ssh.setExecutable(true, true);
         return ssh;
@@ -1686,8 +1696,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("case \"$1\" in");
-            w.println("Username*) cat " + usernameFile.getAbsolutePath() + " ;;");
-            w.println("Password*) cat " + passwordFile.getAbsolutePath() + " ;;");
+            w.println("Username*) cat " + unixArgEncodeFileName(usernameFile.getAbsolutePath()) + " ;;");
+            w.println("Password*) cat " + unixArgEncodeFileName(passwordFile.getAbsolutePath()) + " ;;");
             w.println("esac");
         }
         askpass.setExecutable(true, true);
