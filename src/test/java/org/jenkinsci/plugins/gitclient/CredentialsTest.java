@@ -119,7 +119,7 @@ public class CredentialsTest {
                 + show("key", privateKey));
     }
 
-    private final String SPECIALS_TO_CHECK = "`~!#$%^&*()_+-={}[]|<>,?.";
+    private final String SPECIALS_TO_CHECK = " %"; // " `~!#$%^&*()_+-={}[]|<>,?.";
     private static int specialsIndex = 0;
 
     @Before
@@ -127,8 +127,9 @@ public class CredentialsTest {
         repo = tempFolder.newFolder();
         if (random.nextBoolean() || true) {
             /* Randomly use a repo with a special character in name - JENKINS-43931 */
-            String newDirName = "a space " + SPECIALS_TO_CHECK.charAt(specialsIndex);
-            if (++specialsIndex >= SPECIALS_TO_CHECK.length()) {
+            String newDirName = "a space" + SPECIALS_TO_CHECK.charAt(specialsIndex);
+            specialsIndex = specialsIndex + 1;
+            if (specialsIndex >= SPECIALS_TO_CHECK.length()) {
                 specialsIndex = 0;
             }
             File repoParent = repo;
