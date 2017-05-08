@@ -1450,15 +1450,15 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
         if (workspaceTmp.getAbsolutePath().contains("%")) {
-            // Avoid ssh expansion of percent in file path
+            // Avoid ssh token expansion
             return createTempFileInSystemDir(prefix, suffix);
         }
         if (isWindows()) {
             /* Windows git fails its call to GIT_SSH if its absolute
-             * path contains a space.  Use system temp dir if path to
-             * workspace tmp dir contains a space.
+             * path contains a space or parentheses.  Use system temp
+             * dir instead of workspace temp dir.
              */
-            if (workspaceTmp.getAbsolutePath().contains(" ")) {
+            if (workspaceTmp.getAbsolutePath().matches(".*[( )].*")) {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
