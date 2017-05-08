@@ -1429,7 +1429,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return createTempFile(prefix, suffix, false);
     }
 
-    private File createTempFile(String prefix, String suffix, boolean spacesForbiddenInPath) throws IOException {
+    private File createTempFile(String prefix, String suffix, boolean specialsForbiddenInPath) throws IOException {
         if (workspace == null) {
             return createTempFileInSystemDir(prefix, suffix);
         }
@@ -1440,12 +1440,16 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
+        if (specialsForbiddenInPath && workspaceTmp.getAbsolutePath().contains("%")) {
+            // Avoid ssh expansion of percent in file path
+            return createTempFileInSystemDir(prefix, suffix);
+        }
         if (isWindows()) {
             /* Windows git fails its call to GIT_SSH if its absolute
              * path contains a space.  Use system temp dir if path to
              * workspace tmp dir contains a space.
              */
-            if (spacesForbiddenInPath && workspaceTmp.getAbsolutePath().contains(" ")) {
+            if (specialsForbiddenInPath && workspaceTmp.getAbsolutePath().contains(" ")) {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
@@ -1605,7 +1609,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createSshKeyFile(SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
-        File key = createTempFile("ssh", ".key");
+        File key = createTempFile("ssh", ".key", true);
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
             List<String> privateKeys = sshUser.getPrivateKeys();
             for (String s : privateKeys) {
@@ -1654,7 +1658,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = createTempFile("pass", ".sh");
+        File ssh = createTempFile("pass", ".sh", true);
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("echo '" + quoteUnixCredentials(Secret.toString(sshUser.getPassphrase())) + "'");
@@ -1680,7 +1684,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
-        File askpass = createTempFile("pass", ".sh");
+        File askpass = createTempFile("pass", ".sh", true);
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("case \"$1\" in");
@@ -1823,7 +1827,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixGitSSH(File key, String user) throws IOException {
-        File ssh = createTempFile("ssh", ".sh");
+        File ssh = createTempFile("ssh", ".sh", true);
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             // ${SSH_ASKPASS} might be ignored if ${DISPLAY} is not set
