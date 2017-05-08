@@ -119,7 +119,7 @@ public class CredentialsTest {
                 + show("key", privateKey));
     }
 
-    private final String SPECIALS_TO_CHECK = " %"; // " `~!#$%^&*()_+-={}[]|<>,?.";
+    private final String SPECIALS_TO_CHECK = " %( )"; // " `~!#$%^&*()_+-={}[]|<>,?.";
     private static int specialsIndex = 0;
 
     @Before
