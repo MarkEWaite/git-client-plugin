@@ -466,5 +466,5 @@ public class CredentialsTest {
      */
     private static final String NOT_JENKINS = System.getProperty("JOB_NAME") == null ? "true" : "false";
     private static final boolean TEST_ALL_CREDENTIALS = Boolean.valueOf(System.getProperty("TEST_ALL_CREDENTIALS", NOT_JENKINS));
-    private static final Pattern URL_MUST_MATCH_PATTERN = Pattern.compile(System.getProperty("URL_MUST_MATCH_PATTERN", ".*hasphrase.*"));
+    private static final Pattern URL_MUST_MATCH_PATTERN = Pattern.compile(System.getProperty("URL_MUST_MATCH_PATTERN", ".*"));
 }
