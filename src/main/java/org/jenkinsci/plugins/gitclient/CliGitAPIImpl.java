@@ -1425,11 +1425,20 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return Files.createTempFile(prefix, suffix, fileAttribute).toFile();
     }
 
+    /**
+     * Create temporary file that is aware of the specific limitations of
+     * command line git.  For example, Windows temporary files may not
+     * contain a space anywhere in their path, otherwise they break the ssh
+     * argument passing.  No temporary file name may include a percent sign
+     * in its path because ssh uses the percent sign character as the start
+     * of token indicator for token expansion.
+     *
+     * @param prefix file name prefix for the generated temporary file
+     * @param suffix file name suffix for the generated temporary file
+     * @return temporary file
+     * @throws IOException on error
+     */
     private File createTempFile(String prefix, String suffix) throws IOException {
-        return createTempFile(prefix, suffix, false);
-    }
-
-    private File createTempFile(String prefix, String suffix, boolean specialsForbiddenInPath) throws IOException {
         if (workspace == null) {
             return createTempFileInSystemDir(prefix, suffix);
         }
@@ -1440,7 +1449,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
-        if (specialsForbiddenInPath && workspaceTmp.getAbsolutePath().contains("%")) {
+        if (workspaceTmp.getAbsolutePath().contains("%")) {
             // Avoid ssh expansion of percent in file path
             return createTempFileInSystemDir(prefix, suffix);
         }
@@ -1449,7 +1458,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
              * path contains a space.  Use system temp dir if path to
              * workspace tmp dir contains a space.
              */
-            if (specialsForbiddenInPath && workspaceTmp.getAbsolutePath().contains(" ")) {
+            if (workspaceTmp.getAbsolutePath().contains(" ")) {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
@@ -1609,7 +1618,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createSshKeyFile(SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
-        File key = createTempFile("ssh", ".key", true);
+        File key = createTempFile("ssh", ".key");
         try (PrintWriter w = new PrintWriter(key, Charset.defaultCharset().toString())) {
             List<String> privateKeys = sshUser.getPrivateKeys();
             for (String s : privateKeys) {
@@ -1645,7 +1654,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = createTempFile("pass", ".bat", true);
+        File ssh = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             // avoid echoing command as part of the password
             w.println("@echo off");
@@ -1658,7 +1667,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = createTempFile("pass", ".sh", true);
+        File ssh = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("echo '" + quoteUnixCredentials(Secret.toString(sshUser.getPassphrase())) + "'");
@@ -1669,7 +1678,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     /* Package protected for testability */
     File createWindowsBatFile(String userName, String password) throws IOException {
-        File askpass = createTempFile("pass", ".bat", true);
+        File askpass = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
             w.println("@if (%arg:~0,8%)==(Username) echo " + escapeWindowsCharsForUnquotedString(userName));
@@ -1684,7 +1693,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
-        File askpass = createTempFile("pass", ".sh", true);
+        File askpass = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("case \"$1\" in");
@@ -1814,7 +1823,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsGitSSH(File key, String user) throws IOException {
-        File ssh = createTempFile("ssh", ".bat", true);
+        File ssh = createTempFile("ssh", ".bat");
 
         File sshexe = getSSHExecutable();
 
@@ -1827,7 +1836,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixGitSSH(File key, String user) throws IOException {
-        File ssh = createTempFile("ssh", ".sh", true);
+        File ssh = createTempFile("ssh", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             // ${SSH_ASKPASS} might be ignored if ${DISPLAY} is not set
