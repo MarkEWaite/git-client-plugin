@@ -170,8 +170,8 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <configuration>
             <excludes>
-              <exclude>CliGitAPIImplAuthTest</exclude>
-              <exclude>CliGitAPIImplTest</exclude>
+	      <!-- <exclude>CliGitAPIImplAuthTest</exclude> -->
+	      <!-- <exclude>CliGitAPIImplTest</exclude> -->
               <exclude>CredentialsProviderImplTest</exclude>
               <!-- <exclude>CredentialsTest</exclude> -->
               <exclude>FilePermissionsTest</exclude>
