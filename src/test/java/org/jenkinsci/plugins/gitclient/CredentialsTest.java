@@ -82,7 +82,7 @@ public class CredentialsTest {
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Rule
-    public Timeout timeout = Timeout.seconds(13);
+    public Timeout timeout = Timeout.seconds(17);
 
     private int logCount;
     private LogHandler handler;
