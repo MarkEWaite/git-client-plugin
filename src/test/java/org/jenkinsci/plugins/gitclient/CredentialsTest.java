@@ -119,15 +119,19 @@ public class CredentialsTest {
                 + show("key", privateKey));
     }
 
-    private final String SPECIALS_TO_CHECK = " %( )"; // " `~!#$%^&*()_+-={}[]|<>,?.";
+    /* Windows refuses directory names with '*', '<', '>' and ':' */
+    private final String SPECIALS_TO_CHECK = isWindows()
+            ? " %()`~!#$%^&_+-={}[]|?.," // "*<>:" -- Windows exclusions
+            : " %()`~!#$%^&_+-={}[]|?.,*<>:"; // "" -- Linux exclusion
     private static int specialsIndex = 0;
 
     @Before
     public void setUp() throws IOException, InterruptedException {
+        git = null;
         repo = tempFolder.newFolder();
         if (random.nextBoolean() || true) {
             /* Randomly use a repo with a special character in name - JENKINS-43931 */
-            String newDirName = "a space" + SPECIALS_TO_CHECK.charAt(specialsIndex);
+            String newDirName = "embedded " + SPECIALS_TO_CHECK.charAt(specialsIndex) + " and space";
             specialsIndex = specialsIndex + 1;
             if (specialsIndex >= SPECIALS_TO_CHECK.length()) {
                 specialsIndex = 0;
@@ -182,7 +186,9 @@ public class CredentialsTest {
 
     @After
     public void clearCredentials() {
-        git.clearCredentials();
+        if (git != null) {
+            git.clearCredentials();
+        }
     }
 
     private void checkExpectedLogSubstring() {
@@ -352,7 +358,7 @@ public class CredentialsTest {
         }
     }
 
-    // @Test
+    @Test
     public void testFetchWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
@@ -455,6 +461,11 @@ public class CredentialsTest {
             return " " + name + ": '" + file.getPath() + "'";
         }
         return "";
+    }
+
+    /** inline ${@link hudson.Functions#isWindows()} to prevent a transient remote classloader issue */
+    private boolean isWindows() {
+        return File.pathSeparatorChar==';';
     }
 
     /* If not in a Jenkins job, then default to run all credentials tests.
