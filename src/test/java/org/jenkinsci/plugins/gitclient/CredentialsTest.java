@@ -82,7 +82,7 @@ public class CredentialsTest {
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Rule
-    public Timeout timeout = Timeout.seconds(17);
+    public Timeout timeout = Timeout.seconds(7);
 
     private int logCount;
     private LogHandler handler;
@@ -120,18 +120,17 @@ public class CredentialsTest {
     }
 
     /* Windows refuses directory names with '*', '<', '>' and ':' */
-    private final String SPECIALS_TO_CHECK = isWindows()
-            ? " %()`~!#$%^&_+-={}[]|?.," // "*<>:" -- Windows exclusions
-            : " %()`~!#$%^&_+-={}[]|?.,*<>:"; // "" -- Linux exclusion
+    private final String SPECIALS_TO_CHECK = " %()`~!#$%^&_+-={}[]|?.,"
+            + (isWindows() ? "" : "*<>:");
     private static int specialsIndex = 0;
 
     @Before
     public void setUp() throws IOException, InterruptedException {
         git = null;
         repo = tempFolder.newFolder();
-        if (random.nextBoolean() || true) {
-            /* Randomly use a repo with a special character in name - JENKINS-43931 */
-            String newDirName = "embedded " + SPECIALS_TO_CHECK.charAt(specialsIndex) + " and space";
+        if (random.nextBoolean()) {
+            /* Use a repo with a special character in name - JENKINS-43931 */
+            String newDirName = "with " + SPECIALS_TO_CHECK.charAt(specialsIndex) + " and space";
             specialsIndex = specialsIndex + 1;
             if (specialsIndex >= SPECIALS_TO_CHECK.length()) {
                 specialsIndex = 0;
@@ -139,7 +138,7 @@ public class CredentialsTest {
             File repoParent = repo;
             repo = new File(repoParent, newDirName);
             assertTrue(repo.mkdirs());
-            File repoTemp = new File(repoParent, newDirName + "@tmp"); // allows adjacent temp directory use
+            File repoTemp = new File(repoParent, newDirName + "@tmp"); // use adjacent temp directory
             assertTrue(repoTemp.mkdirs());
         }
         Logger logger = Logger.getLogger(this.getClass().getPackage().getName() + "-" + logCount++);
@@ -464,7 +463,7 @@ public class CredentialsTest {
     }
 
     private boolean isWindows() {
-        return File.pathSeparatorChar==';';
+        return File.pathSeparatorChar == ';';
     }
 
     /* If not in a Jenkins job, then default to run all credentials tests.
