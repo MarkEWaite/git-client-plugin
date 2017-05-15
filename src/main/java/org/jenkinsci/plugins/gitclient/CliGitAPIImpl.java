@@ -1426,12 +1426,18 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /**
-     * Create temporary file that is aware of the specific limitations of
-     * command line git.  For example, Windows temporary files may not
-     * contain a space anywhere in their path, otherwise they break the ssh
-     * argument passing.  No temporary file name may include a percent sign
-     * in its path because ssh uses the percent sign character as the start
-     * of token indicator for token expansion.
+     * Create temporary file that is aware of the specific limitations
+     * of command line git.
+     *
+     * For example, no temporary file name (Windows or Unix) may
+     * include a percent sign in its path because ssh uses the percent
+     * sign character as the start of token indicator for token
+     * expansion.
+     *
+     * As another example, windows temporary files may not contain a
+     * space, an open parenthesis, or a close parenthesis anywhere in
+     * their path, otherwise they break ssh argument passing through
+     * the GIT_SSH or SSH_ASKPASS environment variable.
      *
      * @param prefix file name prefix for the generated temporary file
      * @param suffix file name suffix for the generated temporary file
