@@ -463,7 +463,6 @@ public class CredentialsTest {
         return "";
     }
 
-    /** inline ${@link hudson.Functions#isWindows()} to prevent a transient remote classloader issue */
     private boolean isWindows() {
         return File.pathSeparatorChar==';';
     }
