@@ -170,8 +170,8 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <configuration>
             <excludes>
-	      <!-- <exclude>CliGitAPIImplAuthTest</exclude> -->
-	      <!-- <exclude>CliGitAPIImplTest</exclude> -->
+              <!-- <exclude>CliGitAPIImplAuthTest</exclude> -->
+              <exclude>CliGitAPIImplTest</exclude>
               <exclude>CredentialsProviderImplTest</exclude>
               <!-- <exclude>CredentialsTest</exclude> -->
               <exclude>FilePermissionsTest</exclude>
@@ -187,7 +187,7 @@
               <exclude>IndexEntryTest</exclude>
               <exclude>InjectedTest</exclude>
               <exclude>JGitApacheAPIImplTest</exclude>
-              <exclude>JGitAPIImplTest</exclude>
+              <!-- <exclude>JGitAPIImplTest</exclude> -->
               <exclude>LegacyCompatibleGitAPIImplJGitTest</exclude>
               <exclude>LegacyCompatibleGitAPIImplTest</exclude>
               <exclude>LogHandlerTest</exclude>
