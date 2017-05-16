@@ -82,7 +82,7 @@ public class CredentialsTest {
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Rule
-    public Timeout timeout = Timeout.seconds(7);
+    public Timeout timeout = Timeout.seconds(13);
 
     private int logCount;
     private LogHandler handler;
@@ -137,9 +137,11 @@ public class CredentialsTest {
             }
             File repoParent = repo;
             repo = new File(repoParent, newDirName);
-            assertTrue(repo.mkdirs());
+            boolean dirCreated = repo.mkdirs();
+            assertTrue("Failed to create " + repo.getAbsolutePath(), dirCreated);
             File repoTemp = new File(repoParent, newDirName + "@tmp"); // use adjacent temp directory
-            assertTrue(repoTemp.mkdirs());
+            dirCreated = repoTemp.mkdirs();
+            assertTrue("Failed to create " + repoTemp.getAbsolutePath(), dirCreated);
         }
         Logger logger = Logger.getLogger(this.getClass().getPackage().getName() + "-" + logCount++);
         handler = new LogHandler();
@@ -333,7 +335,7 @@ public class CredentialsTest {
         Collections.shuffle(repos); // randomize test order
         int toIndex = repos.size() < 3 ? repos.size() : 3;
         if (TEST_ALL_CREDENTIALS) {
-            toIndex = repos.size();
+            toIndex = Math.min(repos.size(), 20); // Don't run more than 20 variations of test - about 3 minutes
         }
         return repos.subList(0, toIndex);
     }
