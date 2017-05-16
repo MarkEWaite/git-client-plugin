@@ -119,7 +119,7 @@ public class CredentialsTest {
                 + show("key", privateKey));
     }
 
-    /* Windows refuses directory names with '*', '<', '>' and ':' */
+    /* Windows refuses directory names with '*', '<', '>', '|', '?', and ':' */
     private final String SPECIALS_TO_CHECK = " %()`~!#$%^&_+-={}[].,"
             + (isWindows() ? "" : "*<>:|?");
     private static int specialsIndex = 0;
