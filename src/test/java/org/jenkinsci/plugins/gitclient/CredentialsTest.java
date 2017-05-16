@@ -120,8 +120,8 @@ public class CredentialsTest {
     }
 
     /* Windows refuses directory names with '*', '<', '>' and ':' */
-    private final String SPECIALS_TO_CHECK = " %()`~!#$%^&_+-={}[]|?.,"
-            + (isWindows() ? "" : "*<>:");
+    private final String SPECIALS_TO_CHECK = " %()`~!#$%^&_+-={}[].,"
+            + (isWindows() ? "" : "*<>:|?");
     private static int specialsIndex = 0;
 
     @Before
