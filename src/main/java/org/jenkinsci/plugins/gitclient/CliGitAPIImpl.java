@@ -1461,10 +1461,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
         if (isWindows()) {
             /* Windows git fails its call to GIT_SSH if its absolute
-             * path contains a space or parentheses.  Use system temp
-             * dir instead of workspace temp dir.
+             * path contains a space or parentheses or pipe or question mark.
+             * Use system temp dir instead of workspace temp dir.
              */
-            if (workspaceTmp.getAbsolutePath().matches(".*[( )].*")) {
+            if (workspaceTmp.getAbsolutePath().matches(".*[( )|?].*")) {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
