@@ -335,7 +335,7 @@ public class CredentialsTest {
         Collections.shuffle(repos); // randomize test order
         int toIndex = repos.size() < 3 ? repos.size() : 3;
         if (TEST_ALL_CREDENTIALS) {
-            toIndex = Math.min(repos.size(), 20); // Don't run more than 20 variations of test - about 3 minutes
+            toIndex = Math.min(repos.size(), 60); // Don't run more than 60 variations of test - about 9 minutes
         }
         return repos.subList(0, toIndex);
     }
