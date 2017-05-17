@@ -1456,7 +1456,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
         if (workspaceTmp.getAbsolutePath().contains("%")) {
-            // Avoid ssh token expansion
+            // Avoid ssh token expansion by ssh implementation
             return createTempFileInSystemDir(prefix, suffix);
         }
         if (isWindows()) {
@@ -1468,6 +1468,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
+        } else {
+            if (workspaceTmp.getAbsolutePath().contains("`")) {
+                // Avoid shell command expansion in temporary file name
+                return createTempFileInSystemDir(prefix, suffix);
+            }
         }
         Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
         FileAttribute fileAttribute = PosixFilePermissions.asFileAttribute(ownerOnly);
