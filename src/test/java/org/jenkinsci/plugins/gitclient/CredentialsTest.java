@@ -82,7 +82,7 @@ public class CredentialsTest {
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Rule
-    public Timeout timeout = Timeout.seconds(7);
+    public Timeout timeout = Timeout.seconds(13);
 
     private int logCount;
     private LogHandler handler;
@@ -181,7 +181,9 @@ public class CredentialsTest {
 
     @After
     public void clearCredentials() {
-        git.clearCredentials();
+        if (git != null) {
+            git.clearCredentials();
+        }
     }
 
     private void checkExpectedLogSubstring() {
@@ -327,7 +329,7 @@ public class CredentialsTest {
         Collections.shuffle(repos); // randomize test order
         int toIndex = repos.size() < 3 ? repos.size() : 3;
         if (TEST_ALL_CREDENTIALS) {
-            toIndex = repos.size();
+            toIndex = Math.min(repos.size(), 60); // Don't run more than 60 variations of test - about 9 minutes
         }
         return repos.subList(0, toIndex);
     }
@@ -351,7 +353,7 @@ public class CredentialsTest {
         }
     }
 
-    // @Test
+    @Test
     public void testFetchWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
