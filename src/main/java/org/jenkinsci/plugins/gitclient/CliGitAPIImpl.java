@@ -1425,11 +1425,26 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return Files.createTempFile(prefix, suffix, fileAttribute).toFile();
     }
 
+    /**
+     * Create temporary file that is aware of the specific limitations
+     * of command line git.
+     *
+     * For example, no temporary file name (Windows or Unix) may
+     * include a percent sign in its path because ssh uses the percent
+     * sign character as the start of token indicator for token
+     * expansion.
+     *
+     * As another example, windows temporary files may not contain a
+     * space, an open parenthesis, or a close parenthesis anywhere in
+     * their path, otherwise they break ssh argument passing through
+     * the GIT_SSH or SSH_ASKPASS environment variable.
+     *
+     * @param prefix file name prefix for the generated temporary file
+     * @param suffix file name suffix for the generated temporary file
+     * @return temporary file
+     * @throws IOException on error
+     */
     private File createTempFile(String prefix, String suffix) throws IOException {
-        return createTempFile(prefix, suffix, false);
-    }
-
-    private File createTempFile(String prefix, String suffix, boolean alphanumericPathOnly) throws IOException {
         if (workspace == null) {
             return createTempFileInSystemDir(prefix, suffix);
         }
@@ -1440,20 +1455,26 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         }
         Path tmpPath = Paths.get(workspaceTmp.getAbsolutePath());
+        if (workspaceTmp.getAbsolutePath().contains("%")) {
+            // Avoid ssh token expansion on all platforms
+            return createTempFileInSystemDir(prefix, suffix);
+        }
         if (isWindows()) {
             /* Windows git fails its call to GIT_SSH if its absolute
-             * path contains certain non-alphanumeric characters like ' '
-             * and '(' and ')'.  Use system temp dir if path to
-             * workspace tmp dir contains non-alphanumeric characters except
-             * some specific characters which are known to work.
-             * See JENKINS-43931 and JENKINS-44041
+             * path contains a space or parenthesis or pipe or question mark or asterisk.
+             * Use system temp dir instead of workspace temp dir.
              */
-            if (alphanumericPathOnly && !workspaceTmp.getAbsolutePath().matches("^[\\p{Alnum}\\/:.]+$")) {
+            if (workspaceTmp.getAbsolutePath().matches(".*[ ()|?*].*")) {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
         } else if (workspaceTmp.getAbsolutePath().contains("%")) {
             /* Avoid Linux expansion of % in ssh arguments */
+            return createTempFileInSystemDir(prefix, suffix);
+        }
+        // Unix specific
+        if (workspaceTmp.getAbsolutePath().contains("`")) {
+            // Avoid backquote shell expansion
             return createTempFileInSystemDir(prefix, suffix);
         }
         Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rw-------");
@@ -1838,7 +1859,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createWindowsGitSSH(File key, String user) throws IOException {
-        File ssh = createTempFile("ssh", ".bat", true);
+        File ssh = createTempFile("ssh", ".bat");
 
         File sshexe = getSSHExecutable();
 
