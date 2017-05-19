@@ -1684,7 +1684,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
-        File ssh = createTempFile("pass", ".sh", true);
+        File ssh = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("cat " + unixArgEncodeFileName(passphrase.getAbsolutePath()));
@@ -1872,7 +1872,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private File createUnixGitSSH(File key, String user) throws IOException {
-        File ssh = createTempFile("ssh", ".sh", true);
+        File ssh = createTempFile("ssh", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             // ${SSH_ASKPASS} might be ignored if ${DISPLAY} is not set
