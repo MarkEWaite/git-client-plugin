@@ -55,7 +55,7 @@ public class SubmoduleChangeTest {
 
     private void assertSingleSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {
         List<String> output = parentRepo.gitWithOutput("git", "submodule", "status");
-        assertThat(output, contains(" " + submoduleRepo.head() + " " + submoduleName + " (heads/master)\n"));
+        assertThat(output, contains(" " + submoduleRepo.head() + " " + submoduleName + " (heads/master)"));
     }
 
     private void assertNoSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {

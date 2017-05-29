@@ -32,11 +32,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.jvnet.hudson.test.JenkinsRule;
 import jenkins.scm.impl.mock.AbstractSampleDVCSRepoRule;
+import static org.junit.Assert.*;
 
 /**
  * Manages a sample Git repository.
@@ -55,9 +57,9 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
         final ByteArrayOutputStream err = new ByteArrayOutputStream();
         int returnCode = new Launcher.LocalLauncher(procListener).launch().cmds(commandAndArgs).stdout(out).stderr(err).pwd(this.sampleRepo).join();
         List<String> output = new ArrayList<>();
-        output.add(out.toString());
+        output.addAll(Arrays.asList(out.toString().split("[\r\n]+")));
         if (returnCode != 0) {
-            output.add(err.toString());
+            output.addAll(Arrays.asList(err.toString().split("[\r\n]+")));
         }
         return output;
     }
@@ -102,6 +104,8 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
     /**
      * Returns the (full) commit hash of the current {@link Constants#HEAD} of
      * the repository.
+     * @return commit hash of the current repository
+     * @throws java.lang.Exception on error
      */
     public String head() throws Exception {
         return new RepositoryBuilder().setWorkTree(sampleRepo).build().resolve(Constants.HEAD).name();
@@ -110,7 +114,7 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
     public File getRoot() {
         return this.sampleRepo;
     }
-
+/*
     public boolean gitVersionAtLeast(int neededMajor, int neededMinor) {
         return gitVersionAtLeast(neededMajor, neededMinor, 0);
     }
@@ -143,4 +147,5 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
                 || (gitMajor == neededMajor && gitMinor > neededMinor)
                 || (gitMajor == neededMajor && gitMinor == neededMinor && gitPatch >= neededPatch);
     }
+*/
 }
