@@ -2,7 +2,7 @@ package org.jenkinsci.plugins.gitclient;
 
 import hudson.EnvVars;
 import hudson.util.StreamTaskListener;
-import java.util.List;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -42,10 +42,10 @@ public class SubmoduleChangeTest {
         submoduleName = "submodule-" + createID();
         parentRepo.init();
         parentGitClient = Git.with(StreamTaskListener.fromStderr(), new EnvVars()).in(parentRepo.getRoot()).getClient();
-        assertNoSubmodule(parentRepo, submoduleRepo, submoduleName);
+        assertNoSubmodule(parentGitClient);
         parentRepo.git("submodule", "add", submoduleRepo.getRoot().getAbsolutePath(), submoduleName);
         parentRepo.git("commit", "--message=Add-" + submoduleName);
-        assertSingleSubmodule(parentRepo, submoduleRepo, submoduleName);
+        assertSingleSubmodule(parentGitClient, submoduleRepo.head(), submoduleName);
     }
 
     @Test
@@ -53,13 +53,15 @@ public class SubmoduleChangeTest {
         assertTrue(true);
     }
 
-    private void assertSingleSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {
-        List<String> output = parentRepo.gitWithOutput("git", "submodule", "status");
-        assertThat(output, contains(" " + submoduleRepo.head() + " " + submoduleName + " (heads/master)"));
+    private void assertSingleSubmodule(GitClient parentGitClient, String submoduleHead, String submoduleName) throws Exception {
+        CliGitCommand parentGitCommand = new CliGitCommand(parentGitClient);
+        String[] output = parentGitCommand.run("submodule", "status");
+        assertThat(Arrays.asList(output), contains(" " + submoduleHead + " " + submoduleName + " (heads/master)"));
     }
 
-    private void assertNoSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {
-        List<String> output = parentRepo.gitWithOutput("git", "submodule", "status");
-        assertThat(output, contains(""));
+    private void assertNoSubmodule(GitClient parentGitClient) throws Exception {
+        CliGitCommand parentGitCommand = new CliGitCommand(parentGitClient);
+        String[] output = parentGitCommand.run("submodule", "status");
+        assertThat(Arrays.asList(output), contains(""));
     }
 }
