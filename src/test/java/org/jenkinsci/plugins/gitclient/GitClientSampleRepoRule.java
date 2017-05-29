@@ -31,6 +31,9 @@ import hudson.util.StreamTaskListener;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -45,6 +48,15 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
 
     public void git(String... cmds) throws Exception {
         run("git", cmds);
+    }
+
+    public List<String> gitOutput(String... commandAndArgs) throws Exception {
+        final TaskListener procListener = StreamTaskListener.fromStderr();
+        final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        int returnCode = new Launcher.LocalLauncher(procListener).launch().cmds(commandAndArgs).stdout(out).join();
+        List<String> output = new ArrayList<String>();
+        output.add(out.toString());
+        return output;
     }
 
     private static void checkGlobalConfig() throws Exception {

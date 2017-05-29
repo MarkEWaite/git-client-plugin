@@ -2,6 +2,9 @@ package org.jenkinsci.plugins.gitclient;
 
 import hudson.EnvVars;
 import hudson.util.StreamTaskListener;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Rule;
@@ -24,13 +27,25 @@ public class SubmoduleChangeTest {
     public GitClientSampleRepoRule parentRepo = new GitClientSampleRepoRule();
 
     private GitClient parentGitClient;
+    private String submoduleName;
+
+    private static final AtomicInteger COUNTER = new AtomicInteger();
+
+    public static String createID() {
+        return String.valueOf(COUNTER.getAndIncrement());
+    }
 
     @Before
     public void addSubmoduleRepoToParent() throws Exception {
         // Create two sample repos, add one as submodule of the other
         submoduleRepo.init();
+        submoduleName = "submodule-" + createID();
         parentRepo.init();
         parentGitClient = Git.with(StreamTaskListener.fromStderr(), new EnvVars()).in(parentRepo.getRoot()).getClient();
+        assertNoSubmodule(parentRepo, submoduleRepo, submoduleName);
+        parentRepo.git("submodule", "add", submoduleRepo.getRoot().getAbsolutePath(), submoduleName);
+        parentRepo.git("submodule", "update", "--init");
+        assertSingleSubmodule(parentRepo, submoduleRepo, submoduleName);
     }
 
     @Test
@@ -38,8 +53,13 @@ public class SubmoduleChangeTest {
         assertTrue(true);
     }
 
-    @Test
-    public void empty() {
-        assertTrue(true);
+    private void assertSingleSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {
+        List<String> output = parentRepo.gitOutput("git", "submodule", "status");
+        assertThat(output, contains("xyzzy"));
+    }
+
+    private void assertNoSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {
+        List<String> output = parentRepo.gitOutput("git", "submodule", "status");
+        assertThat(output, contains(""));
     }
 }
