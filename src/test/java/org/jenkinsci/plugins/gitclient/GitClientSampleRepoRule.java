@@ -38,7 +38,6 @@ import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.jvnet.hudson.test.JenkinsRule;
 import jenkins.scm.impl.mock.AbstractSampleDVCSRepoRule;
-import static org.junit.Assert.*;
 
 /**
  * Manages a sample Git repository.
