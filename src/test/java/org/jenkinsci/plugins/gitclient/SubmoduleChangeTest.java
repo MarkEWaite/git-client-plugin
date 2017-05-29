@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.gitclient;
 
 import static org.junit.Assert.*;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
 /**
@@ -14,14 +15,21 @@ import org.junit.Test;
  */
 public class SubmoduleChangeTest {
 
+    @Rule
+    public GitClientSampleRepoRule submoduleRepo = new GitClientSampleRepoRule();
+
+    @Rule
+    public GitClientSampleRepoRule parentRepo = new GitClientSampleRepoRule();
+
     @Before
-    public void createSubmoduleRepos() {
+    public void addSubmoduleRepoToParent() throws Exception {
         // Create two sample repos, add one as submodule of the other
+        parentRepo.init();
+        submoduleRepo.init();
     }
 
     @Test
-    public void checkoutThenDeleteSubmodule()
-    {
+    public void checkoutThenDeleteSubmodule() {
         assertTrue(true);
     }
 
