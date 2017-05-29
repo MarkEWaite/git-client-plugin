@@ -1,5 +1,7 @@
 package org.jenkinsci.plugins.gitclient;
 
+import hudson.EnvVars;
+import hudson.util.StreamTaskListener;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Rule;
@@ -21,11 +23,14 @@ public class SubmoduleChangeTest {
     @Rule
     public GitClientSampleRepoRule parentRepo = new GitClientSampleRepoRule();
 
+    private GitClient parentGitClient;
+
     @Before
     public void addSubmoduleRepoToParent() throws Exception {
         // Create two sample repos, add one as submodule of the other
-        parentRepo.init();
         submoduleRepo.init();
+        parentRepo.init();
+        parentGitClient = Git.with(StreamTaskListener.fromStderr(), new EnvVars()).in(parentRepo.getRoot()).getClient();
     }
 
     @Test
