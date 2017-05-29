@@ -179,7 +179,7 @@
           <configuration>
             <excludes>
               <exclude>CliGitAPIImplAuthTest</exclude>
-              <exclude>CliGitAPIImplTest</exclude>
+              <!-- <exclude>CliGitAPIImplTest</exclude> -->
               <exclude>CliGitAPITempFileTest</exclude>
               <exclude>CredentialsProviderImplTest</exclude>
               <exclude>CredentialsTest</exclude>
