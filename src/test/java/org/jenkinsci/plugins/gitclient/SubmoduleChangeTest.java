@@ -45,7 +45,7 @@ public class SubmoduleChangeTest {
         assertNoSubmodule(parentGitClient);
         parentRepo.git("submodule", "add", submoduleRepo.getRoot().getAbsolutePath(), submoduleName);
         parentRepo.git("commit", "--message=Add-" + submoduleName);
-        // Unexpected failure on CentOS 7 with git 1.7.1
+        // Unexpected failure on CentOS 6 with git 1.7.1
         assertSingleSubmodule(parentGitClient, submoduleRepo.head(), submoduleName);
     }
 
