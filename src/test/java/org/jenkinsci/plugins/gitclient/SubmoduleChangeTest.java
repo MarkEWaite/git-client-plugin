@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.gitclient;
 
 import static org.junit.Assert.*;
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -12,6 +13,17 @@ import org.junit.Test;
  * @author Mark Waite
  */
 public class SubmoduleChangeTest {
+
+    @Before
+    public void createSubmoduleRepos() {
+        // Create two sample repos, add one as submodule of the other
+    }
+
+    @Test
+    public void checkoutThenDeleteSubmodule()
+    {
+        assertTrue(true);
+    }
 
     @Test
     public void empty() {
