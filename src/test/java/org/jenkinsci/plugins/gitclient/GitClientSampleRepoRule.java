@@ -32,7 +32,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.RepositoryBuilder;
@@ -50,12 +49,16 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
         run("git", cmds);
     }
 
-    public List<String> gitOutput(String... commandAndArgs) throws Exception {
+    public List<String> gitWithOutput(String... commandAndArgs) throws Exception {
         final TaskListener procListener = StreamTaskListener.fromStderr();
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        int returnCode = new Launcher.LocalLauncher(procListener).launch().cmds(commandAndArgs).stdout(out).join();
-        List<String> output = new ArrayList<String>();
+        final ByteArrayOutputStream err = new ByteArrayOutputStream();
+        int returnCode = new Launcher.LocalLauncher(procListener).launch().cmds(commandAndArgs).stdout(out).stderr(err).pwd(this.sampleRepo).join();
+        List<String> output = new ArrayList<>();
         output.add(out.toString());
+        if (returnCode != 0) {
+            output.add(err.toString());
+        }
         return output;
     }
 

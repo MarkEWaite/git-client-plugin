@@ -44,7 +44,7 @@ public class SubmoduleChangeTest {
         parentGitClient = Git.with(StreamTaskListener.fromStderr(), new EnvVars()).in(parentRepo.getRoot()).getClient();
         assertNoSubmodule(parentRepo, submoduleRepo, submoduleName);
         parentRepo.git("submodule", "add", submoduleRepo.getRoot().getAbsolutePath(), submoduleName);
-        parentRepo.git("submodule", "update", "--init");
+        parentRepo.git("commit", "--message=Add-" + submoduleName);
         assertSingleSubmodule(parentRepo, submoduleRepo, submoduleName);
     }
 
@@ -54,12 +54,12 @@ public class SubmoduleChangeTest {
     }
 
     private void assertSingleSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {
-        List<String> output = parentRepo.gitOutput("git", "submodule", "status");
-        assertThat(output, contains("xyzzy"));
+        List<String> output = parentRepo.gitWithOutput("git", "submodule", "status");
+        assertThat(output, contains(" " + submoduleRepo.head() + " " + submoduleName + " (heads/master)\n"));
     }
 
     private void assertNoSubmodule(GitClientSampleRepoRule parentRepo, GitClientSampleRepoRule submoduleRepo, String submoduleName) throws Exception {
-        List<String> output = parentRepo.gitOutput("git", "submodule", "status");
+        List<String> output = parentRepo.gitWithOutput("git", "submodule", "status");
         assertThat(output, contains(""));
     }
 }
