@@ -50,6 +50,7 @@ public class SubmoduleChangeTest {
 
     @Test
     public void checkoutThenDeleteSubmodule() {
+        // See GitAPITestCase#test_submodule_checkout_and_clean_transitions
         assertTrue(true);
     }
 

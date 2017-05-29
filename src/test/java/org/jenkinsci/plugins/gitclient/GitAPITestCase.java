@@ -1868,6 +1868,8 @@ public abstract class GitAPITestCase extends TestCase {
      * JENKINS-8053  - Git submodules are cloned too early and not removed once the revToBuild has been checked out
      * JENKINS-14083 - Build can't recover from broken submodule path
      * JENKINS-15399 - Changing remote URL doesn't update submodules
+     * JENKINS-38860 - should be detected by this test and is not?
+     * JENKINS-41553 - should be detected by this test and is not?
      *
      * @throws Exception on test failure
      */
