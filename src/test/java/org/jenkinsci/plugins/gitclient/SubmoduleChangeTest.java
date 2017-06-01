@@ -61,11 +61,15 @@ public class SubmoduleChangeTest {
         CliGitCommand parentGitCommand = new CliGitCommand(parentGitClient);
         String[] output = parentGitCommand.run("submodule", "status");
         assertThat(Arrays.asList(output), contains(" " + submoduleHead + " " + submoduleName + " (heads/master)"));
+        // Assert that .gitmodules contains only expected values
+        // Assert that .git/modules direcfory contains only expected values
     }
 
     private void assertNoSubmodule(GitClient parentGitClient) throws Exception {
         CliGitCommand parentGitCommand = new CliGitCommand(parentGitClient);
         String[] output = parentGitCommand.run("submodule", "status");
         assertThat(Arrays.asList(output), contains(""));
+        // Assert that .gitmodules does not exist or is empty
+        // Assert that .git/modules direcfory is empty
     }
 }
