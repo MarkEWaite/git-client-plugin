@@ -2,13 +2,15 @@ package org.jenkinsci.plugins.gitclient;
 
 import hudson.EnvVars;
 import hudson.util.StreamTaskListener;
+
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
 /**
  * Test that addition and deletion of submodules within a branch are correctly
