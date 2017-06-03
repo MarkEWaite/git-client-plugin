@@ -2041,6 +2041,9 @@ public abstract class GitAPITestCase extends TestCase {
             assertDirNotFound(sshkeysDir);
         }
 
+        w.git.submoduleClean(false); // no nested submodules in this test
+        assertSubmoduleDirs(w.repo, true, false);
+
         w.git.submoduleClean(true);
         assertSubmoduleDirs(w.repo, true, false);
 
