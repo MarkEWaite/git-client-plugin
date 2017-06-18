@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.commons.io.FileUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -137,16 +138,44 @@ public class SubmoduleChangeTest {
         assertTrue("Missing " + gitDir, gitDir.isDirectory());
         gitClient.setRemoteUrl("origin", parentRepo.getRoot().getAbsolutePath());
         fetch(gitClient, "origin", "+refs/heads/*:refs/remotes/origin/*");
-        gitClient.checkout(parentCommitSHA1, "master");
+        gitClient.checkoutBranch("master", parentCommitSHA1);
         gitClient.submoduleInit();
         gitClient.submoduleUpdate().execute();
         assertSingleSubmodule(gitClient, submoduleRepo.head(), submoduleName);
 
-        /**
-         * Step 3 - delete submodule in the branch, add another submodule
+        /*
+         * Step 3a - delete submodule in the parent repo's branch
+         * See https://stackoverflow.com/questions/1260748/how-do-i-remove-a-submodule
+         * mv submoduleName submoduleName.tmp
+         * git submodule deinit -f submoduleName
+         * rm -rf .git/modules/submoduleName
+         * git rm -rf submoduleName
+         * git commit -a -m "Remove submodule submoduleName"
+         */
+        File submoduleDir = new File(parentRepo.getRoot(), submoduleName);
+        assertTrue("Did not find submodule dir " + submoduleDir.getName(), submoduleDir.exists());
+        File submoduleDirTmp = new File(parentRepo.getRoot(), submoduleName + ".tmp");
+        submoduleDir.renameTo(submoduleDirTmp);
+        assertFalse("Failed to rename submodule dir " + submoduleDir.getName(), submoduleDir.exists());
+        assertTrue("Did not find renamed submodule dir " + submoduleDirTmp.getName(), submoduleDirTmp.exists());
+        parentRepo.git("submodule", "deinit", "-f", submoduleName);
+        File parentModulesDir = new File(parentRepo.getRoot(), ".git/modules/" + submoduleName);
+        assertTrue("Did not find " + parentModulesDir.getAbsolutePath(), parentModulesDir.exists());
+        FileUtils.deleteDirectory(parentModulesDir);
+        assertFalse("Did not delete " + parentModulesDir.getAbsolutePath(), parentModulesDir.exists());
+        parentRepo.git("rm", "-rf", submoduleName);
+        parentRepo.git("commit", "-a", "-m", "Remove submodule " + submoduleName);
+        parentCommitSHA1 = parentRepo.head();
+
+        fetch(gitClient, "origin", "+refs/heads/*:refs/remotes/origin/*");
+        gitClient.checkoutBranch("master", parentCommitSHA1);
+        // assertNoSubmodule(gitClient);  // fails - checkoutBranch does not make all necessary changes
+
+        /*
+         * Step 3b - add a submodule in parent repo's branch
          */
 
-        /**
+ /*
          * Step 4 Checkout branch, confirm modified structure
          */
     }
@@ -163,7 +192,11 @@ public class SubmoduleChangeTest {
         CliGitCommand parentGitCommand = new CliGitCommand(parentGitClient);
         String[] output = parentGitCommand.run("submodule", "status");
         assertThat(Arrays.asList(output), contains(""));
-        // Assert that .gitmodules does not exist or is empty
         // Assert that .git/modules direcfory is empty
+        File gitModulesDir = new File(parentGitClient.getRepository().getDirectory(), "modules");
+        if (gitModulesDir.exists()) {
+            assertThat("Submodules not removed", Arrays.asList(gitModulesDir.list()), is(empty()));
+        }
+        // Assert that .gitmodules does not exist or is empty
     }
 }
