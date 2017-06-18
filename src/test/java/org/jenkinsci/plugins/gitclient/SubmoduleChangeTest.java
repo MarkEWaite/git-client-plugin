@@ -51,9 +51,19 @@ public class SubmoduleChangeTest {
         assertSingleSubmodule(parentGitClient, submoduleRepo.head(), submoduleName);
     }
 
+    /**
+     * JENKINS-38860, JENKINS-41553, and JENKINS-43977 report that changes to
+     * the submodule structure in a branch are not applied correctly to the
+     * checkout after those structure changes were made on the remote repo.
+     *
+     * Steps:
+     * 1. Create a repository with a branch that references a submodule
+     * 2. Checkout branch from repository, confirm expected structure
+     * 3. Delete the submodule in the branch, add another submodule
+     * 4. Checkout branch from repository, confirm modified structure
+     */
     @Test
-    public void checkoutThenDeleteSubmodule() {
-        // See GitAPITestCase#test_submodule_checkout_and_clean_transitions
+    public void checkoutAfterSubmoduleStructureChange() {
         assertTrue(true);
     }
 
