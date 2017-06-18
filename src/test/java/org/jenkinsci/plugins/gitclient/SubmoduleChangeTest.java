@@ -138,9 +138,9 @@ public class SubmoduleChangeTest {
         assertTrue("Missing " + gitDir, gitDir.isDirectory());
         gitClient.setRemoteUrl("origin", parentRepo.getRoot().getAbsolutePath());
         fetch(gitClient, "origin", "+refs/heads/*:refs/remotes/origin/*");
-        gitClient.checkoutBranch("master", parentCommitSHA1);
+        gitClient.checkout().branch("master").deleteBranchIfExist(true).ref(parentCommitSHA1).execute();
         gitClient.submoduleInit();
-        gitClient.submoduleUpdate().execute();
+        gitClient.submoduleUpdate().ref(parentCommitSHA1).recursive(false).remoteTracking(false).execute();
         assertSingleSubmodule(gitClient, submoduleRepo.head(), submoduleName);
 
         /*
@@ -168,7 +168,7 @@ public class SubmoduleChangeTest {
         parentCommitSHA1 = parentRepo.head();
 
         fetch(gitClient, "origin", "+refs/heads/*:refs/remotes/origin/*");
-        gitClient.checkoutBranch("master", parentCommitSHA1);
+        gitClient.checkout().branch("master").deleteBranchIfExist(true).ref(parentCommitSHA1).execute();
         // assertNoSubmodule(gitClient);  // fails - checkoutBranch does not make all necessary changes
 
         /*
