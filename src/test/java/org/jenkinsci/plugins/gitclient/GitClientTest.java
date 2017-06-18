@@ -64,7 +64,7 @@ public class GitClientTest {
     /** Absolute path to git client plugin repository directory. */
     private final String srcRepoAbsolutePath = srcRepoDir.getAbsolutePath();
 
-    /** GitClient for plugin development respository. */
+    /** GitClient for plugin development repository. */
     private final GitClient srcGitClient;
 
     /** commit known to exist in git client plugin repository and in upstream. */
