@@ -57,7 +57,7 @@ public class SubmoduleChangeTest {
      * checkout after those structure changes were made on the remote repo.
      *
      * Steps:
-     * 1. Create a repository with a branch that references a submodule
+     * 1. Create a repository with a branch that references a submodule (before)
      * 2. Checkout branch from repository, confirm expected structure
      * 3. Delete the submodule in the branch, add another submodule
      * 4. Checkout branch from repository, confirm modified structure
