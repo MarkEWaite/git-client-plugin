@@ -1863,6 +1863,9 @@ public abstract class GitAPITestCase extends TestCase {
      *   with submodules -> without submodules, with files/dirs of same name
      *   with submodules -> without submodules, no files/dirs of same name
      *
+     * Does not test:
+     *   with submodules -> with different submodules (see SubmoduleChangeTest)
+     *
      * See bug reports such as:
      * JENKINS-22510 - Clean After Checkout Results in Failed to Checkout Revision
      * JENKINS-8053  - Git submodules are cloned too early and not removed once the revToBuild has been checked out
