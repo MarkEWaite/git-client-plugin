@@ -138,6 +138,7 @@ public class SubmoduleChangeTest {
         gitClient.setRemoteUrl("origin", parentRepo.getRoot().getAbsolutePath());
         fetch(gitClient, "origin", "+refs/heads/*:refs/remotes/origin/*");
         gitClient.checkout(parentCommitSHA1, "master");
+        gitClient.submoduleInit();
         gitClient.submoduleUpdate().execute();
         assertSingleSubmodule(gitClient, submoduleRepo.head(), submoduleName);
 
