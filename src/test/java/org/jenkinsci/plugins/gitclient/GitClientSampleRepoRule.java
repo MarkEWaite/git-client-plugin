@@ -57,8 +57,8 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
         GitClientSampleRepoRule.checkGlobalConfig();
         run(true, tmp.getRoot(), "git", "version");
         git("init");
-        write("file", "");
-        git("add", "file");
+        write("README.md", "Add a README file");
+        git("add", "README.md");
         git("config", "user.name", "Git SampleRepoRule");
         git("config", "user.email", "gits@mplereporule");
         git("commit", "--message=first-commit");
