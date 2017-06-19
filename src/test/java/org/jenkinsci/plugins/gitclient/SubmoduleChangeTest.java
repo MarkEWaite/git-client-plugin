@@ -63,11 +63,13 @@ public class SubmoduleChangeTest {
         gitCmd.setDefaults();
     }
 
+    private final String SUBMODULE_DIRNAME_PREFIX = "submodule-";
+
     @Before
     public void addSubmoduleRepoToParent() throws Exception {
         // Create two sample repos, add one as submodule of the other
         submoduleRepo.init();
-        submoduleName = "submodule-" + createID();
+        submoduleName = SUBMODULE_DIRNAME_PREFIX + createID();
         parentRepo.init();
         parentGitClient = Git.with(StreamTaskListener.fromStderr(), new EnvVars()).in(parentRepo.getRoot()).getClient();
         assertNoSubmodule(parentGitClient, true);
@@ -190,14 +192,20 @@ public class SubmoduleChangeTest {
     }
 
     private void assertNoSubmodule(GitClient gitClient, boolean checkModules) throws Exception {
+        // Assert that git submodule status output is empty
         CliGitCommand parentGitCommand = new CliGitCommand(gitClient);
         String[] output = parentGitCommand.run("submodule", "status");
         assertThat(Arrays.asList(output), contains(""));
+
+        // Assert that no submodule directories are in work tree
+        FilePath workTree = gitClient.getWorkTree();
+        FilePath[] submoduleDirs = workTree.list(SUBMODULE_DIRNAME_PREFIX + "*");
+        assertThat(Arrays.asList(submoduleDirs), is(empty()));
+
         // Assert that .git/modules direcfory is empty
         if (checkModules) {
-            FilePath workTree = gitClient.getWorkTree();
             FilePath submoduleDirFilePath = new FilePath(workTree, submoduleName);
-            assertFalse("Found " + submoduleName + " in work tree", submoduleDirFilePath.exists());
+            // assertFalse("Found " + submoduleName + " in work tree", submoduleDirFilePath.exists());
             File gitModulesDir = new File(gitClient.getRepository().getDirectory(), "modules");
             if (gitModulesDir.exists()) {
                 assertThat("Submodules not removed", Arrays.asList(gitModulesDir.list()), is(empty()));
