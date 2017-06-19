@@ -72,7 +72,7 @@ public class SubmoduleChangeTest {
         submoduleName = SUBMODULE_DIRNAME_PREFIX + createID();
         parentRepo.init();
         parentGitClient = Git.with(StreamTaskListener.fromStderr(), new EnvVars()).in(parentRepo.getRoot()).getClient();
-        assertNoSubmodule(parentGitClient, true);
+        assertNoSubmodule(parentGitClient);
         parentRepo.git("submodule", "add", submoduleRepo.getRoot().getAbsolutePath(), submoduleName);
         parentRepo.git("commit", "--message=Add-" + submoduleName);
         parentCommitSHA1 = parentRepo.head();
@@ -191,6 +191,11 @@ public class SubmoduleChangeTest {
         // Assert that .git/modules direcfory contains only expected values
     }
 
+    private void assertNoSubmodule(GitClient gitClient) throws Exception {
+        boolean checkModules = true;
+        assertNoSubmodule(gitClient, checkModules);
+    }
+
     private void assertNoSubmodule(GitClient gitClient, boolean checkModules) throws Exception {
         // Assert that git submodule status output is empty
         CliGitCommand parentGitCommand = new CliGitCommand(gitClient);
@@ -205,7 +210,7 @@ public class SubmoduleChangeTest {
         // Assert that .git/modules direcfory is empty
         if (checkModules) {
             FilePath submoduleDirFilePath = new FilePath(workTree, submoduleName);
-            // assertFalse("Found " + submoduleName + " in work tree", submoduleDirFilePath.exists());
+            assertFalse("Found " + submoduleName + " in work tree", submoduleDirFilePath.exists());
             File gitModulesDir = new File(gitClient.getRepository().getDirectory(), "modules");
             if (gitModulesDir.exists()) {
                 assertThat("Submodules not removed", Arrays.asList(gitModulesDir.list()), is(empty()));
