@@ -69,7 +69,7 @@ public class SubmoduleChangeTest {
         submoduleName = "submodule-" + createID();
         parentRepo.init();
         parentGitClient = Git.with(StreamTaskListener.fromStderr(), new EnvVars()).in(parentRepo.getRoot()).getClient();
-        assertNoSubmodule(parentGitClient);
+        assertNoSubmodule(parentGitClient, true);
         parentRepo.git("submodule", "add", submoduleRepo.getRoot().getAbsolutePath(), submoduleName);
         parentRepo.git("commit", "--message=Add-" + submoduleName);
         parentCommitSHA1 = parentRepo.head();
@@ -152,12 +152,12 @@ public class SubmoduleChangeTest {
          * git rm -rf submoduleName
          * git commit -a -m "Remove submodule submoduleName"
          */
-        File submoduleDir = new File(parentRepo.getRoot(), submoduleName);
-        assertTrue("Did not find submodule dir " + submoduleDir.getName(), submoduleDir.exists());
-        File submoduleDirTmp = new File(parentRepo.getRoot(), submoduleName + ".tmp");
-        submoduleDir.renameTo(submoduleDirTmp);
-        assertFalse("Failed to rename submodule dir " + submoduleDir.getName(), submoduleDir.exists());
-        assertTrue("Did not find renamed submodule dir " + submoduleDirTmp.getName(), submoduleDirTmp.exists());
+        File submoduleDirInParent = new File(parentRepo.getRoot(), submoduleName);
+        assertTrue("Did not find submodule dir " + submoduleDirInParent.getName(), submoduleDirInParent.exists());
+        File submoduleDirTmpInParent = new File(parentRepo.getRoot(), submoduleName + ".tmp");
+        submoduleDirInParent.renameTo(submoduleDirTmpInParent);
+        assertFalse("Failed to rename submodule dir " + submoduleDirInParent.getName(), submoduleDirInParent.exists());
+        assertTrue("Did not find renamed submodule dir " + submoduleDirTmpInParent.getName(), submoduleDirTmpInParent.exists());
         parentRepo.git("submodule", "deinit", "-f", submoduleName);
         File parentModulesDir = new File(parentRepo.getRoot(), ".git/modules/" + submoduleName);
         assertTrue("Did not find " + parentModulesDir.getAbsolutePath(), parentModulesDir.exists());
@@ -169,7 +169,7 @@ public class SubmoduleChangeTest {
 
         fetch(gitClient, "origin", "+refs/heads/*:refs/remotes/origin/*");
         gitClient.checkout().branch("master").deleteBranchIfExist(true).ref(parentCommitSHA1).execute();
-        // assertNoSubmodule(gitClient);  // fails - checkoutBranch does not make all necessary changes
+        assertNoSubmodule(gitClient, false);  // fails - checkoutBranch does not make all necessary changes
 
         /*
          * Step 3b - add a submodule in parent repo's branch
@@ -188,15 +188,17 @@ public class SubmoduleChangeTest {
         // Assert that .git/modules direcfory contains only expected values
     }
 
-    private void assertNoSubmodule(GitClient parentGitClient) throws Exception {
+    private void assertNoSubmodule(GitClient parentGitClient, boolean checkModules) throws Exception {
         CliGitCommand parentGitCommand = new CliGitCommand(parentGitClient);
         String[] output = parentGitCommand.run("submodule", "status");
         assertThat(Arrays.asList(output), contains(""));
         // Assert that .git/modules direcfory is empty
-        File gitModulesDir = new File(parentGitClient.getRepository().getDirectory(), "modules");
-        if (gitModulesDir.exists()) {
-            assertThat("Submodules not removed", Arrays.asList(gitModulesDir.list()), is(empty()));
+        if (checkModules) {
+            File gitModulesDir = new File(parentGitClient.getRepository().getDirectory(), "modules");
+            if (gitModulesDir.exists()) {
+                assertThat("Submodules not removed", Arrays.asList(gitModulesDir.list()), is(empty()));
+            }
+            // Assert that .gitmodules does not exist or is empty}
         }
-        // Assert that .gitmodules does not exist or is empty
     }
 }
