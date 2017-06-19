@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.gitclient;
 
 import hudson.EnvVars;
+import hudson.FilePath;
 import hudson.model.TaskListener;
 import hudson.util.StreamTaskListener;
 
@@ -188,13 +189,16 @@ public class SubmoduleChangeTest {
         // Assert that .git/modules direcfory contains only expected values
     }
 
-    private void assertNoSubmodule(GitClient parentGitClient, boolean checkModules) throws Exception {
-        CliGitCommand parentGitCommand = new CliGitCommand(parentGitClient);
+    private void assertNoSubmodule(GitClient gitClient, boolean checkModules) throws Exception {
+        CliGitCommand parentGitCommand = new CliGitCommand(gitClient);
         String[] output = parentGitCommand.run("submodule", "status");
         assertThat(Arrays.asList(output), contains(""));
         // Assert that .git/modules direcfory is empty
         if (checkModules) {
-            File gitModulesDir = new File(parentGitClient.getRepository().getDirectory(), "modules");
+            FilePath workTree = gitClient.getWorkTree();
+            FilePath submoduleDirFilePath = new FilePath(workTree, submoduleName);
+            assertFalse("Found " + submoduleName + " in work tree", submoduleDirFilePath.exists());
+            File gitModulesDir = new File(gitClient.getRepository().getDirectory(), "modules");
             if (gitModulesDir.exists()) {
                 assertThat("Submodules not removed", Arrays.asList(gitModulesDir.list()), is(empty()));
             }
