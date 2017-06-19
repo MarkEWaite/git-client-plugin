@@ -52,6 +52,8 @@ public class SubmoduleChangeTest {
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
+    private static final String SUBMODULE_DIRNAME_PREFIX = "submodule-";
+
     public static String createID() {
         return String.valueOf(COUNTER.getAndIncrement());
     }
@@ -62,8 +64,6 @@ public class SubmoduleChangeTest {
         CliGitCommand gitCmd = new CliGitCommand(null);
         gitCmd.setDefaults();
     }
-
-    private final String SUBMODULE_DIRNAME_PREFIX = "submodule-";
 
     @Before
     public void addSubmoduleRepoToParent() throws Exception {
