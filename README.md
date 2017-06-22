@@ -1,3 +1,7 @@
+Test JENKINS-43507 new behavior
+
+It clones a targeted refspec, which should break tests in this repository.
+
 Utility plugin for Git-related support
 ======================================
 
