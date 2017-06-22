@@ -1,3 +1,8 @@
+Avoid shell expansion in credentials file names
+===============================================
+
+Work attempting to reduce shell wildcard expansion risks in credential values.
+
 Utility plugin for Git-related support
 ======================================
 
