@@ -50,16 +50,18 @@ import org.junit.runners.Parameterized;
 import org.jvnet.hudson.test.Issue;
 
 /**
+ * Git Client tests, intended as an eventual replacement for CliGitAPIImplTest,
+ * JGitAPIImplTest, and JGitApacheAPIImplTest.
  *
  * @author Mark Waite
  */
 @RunWith(Parameterized.class)
 public class GitClientTest {
 
-    /** Git implementation name, either "git", "jgit", or "jgitapache". */
+    /* Git implementation name, either "git", "jgit", or "jgitapache". */
     private final String gitImplName;
 
-    /** Git client plugin repository directory.  */
+    /* Git client plugin repository directory. */
     private static File srcRepoDir = new File(".");
 
     /* GitClient for plugin development repository. */
@@ -139,21 +141,27 @@ public class GitClientTest {
     }
 
     /**
-     * Full copy of the git-client-plugin repo so that the tests have a
-     * reasonable and repeatable set of commits, tags, and branches.
+     * Mirror the git-client-plugin repo so that the tests have a reasonable and
+     * repeatable set of commits, tags, and branches.
      */
     private static File mirrorParent = null;
 
     @BeforeClass
     public static void mirrorUpstreamRepositoryLocally() throws Exception {
+        File currentDir = new File(".");
         mirrorParent = Files.createTempDirectory("mirror").toFile();
-        GitClient mirrorParentClient = Git.with(TaskListener.NULL, new EnvVars()).in(mirrorParent).using("git").getClient();
-        CliGitCommand mirrorParentGitCmd = new CliGitCommand(mirrorParentClient);
-        mirrorParentGitCmd.run("clone", "--mirror", "https://github.com/jenkinsci/git-client-plugin");
+
+        /* Clone mirror into mirrorParent/git-client-plugin.git as a bare repo */
+        CliGitCommand mirrorParentGitCmd = new CliGitCommand(Git.with(TaskListener.NULL, new EnvVars()).in(mirrorParent).using("git").getClient());
+        mirrorParentGitCmd.run("clone",
+                "--reference", currentDir.getAbsolutePath(),
+                "--mirror", "https://github.com/jenkinsci/git-client-plugin");
         File mirrorDir = new File(mirrorParent, "git-client-plugin.git");
+        assertTrue("Git client mirror repo not created at " + mirrorDir.getAbsolutePath(), mirrorDir.exists());
         GitClient mirrorClient = Git.with(TaskListener.NULL, new EnvVars()).in(mirrorDir).using("git").getClient();
-        String expectedTag = "git-client-1.6.3";
-        assertThat(mirrorClient.getTagNames(expectedTag), is(not(empty())));
+        assertThat(mirrorClient.getTagNames("git-client-1.6.3"), contains("git-client-1.6.3"));
+
+        /* Clone from bare mirrorParent/git-client-plugin.git to working mirrorParent/git-client-plugin */
         mirrorParentGitCmd.run("clone", mirrorDir.getAbsolutePath());
         srcRepoDir = new File(mirrorParent, "git-client-plugin");
     }
