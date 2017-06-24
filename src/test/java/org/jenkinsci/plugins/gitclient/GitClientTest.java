@@ -154,7 +154,7 @@ public class GitClientTest {
         /* Clone mirror into mirrorParent/git-client-plugin.git as a bare repo */
         CliGitCommand mirrorParentGitCmd = new CliGitCommand(Git.with(TaskListener.NULL, new EnvVars()).in(mirrorParent).using("git").getClient());
         mirrorParentGitCmd.run("clone",
-                "--reference", currentDir.getAbsolutePath(),
+                // "--reference", currentDir.getAbsolutePath(), // --reference of shallow repo fails
                 "--mirror", "https://github.com/jenkinsci/git-client-plugin");
         File mirrorDir = new File(mirrorParent, "git-client-plugin.git");
         assertTrue("Git client mirror repo not created at " + mirrorDir.getAbsolutePath(), mirrorDir.exists());
