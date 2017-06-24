@@ -149,13 +149,21 @@ public class GitClientTest {
     @BeforeClass
     public static void mirrorUpstreamRepositoryLocally() throws Exception {
         File currentDir = new File(".");
-        mirrorParent = Files.createTempDirectory("mirror").toFile();
+        CliGitAPIImpl currentDirCliGit = (CliGitAPIImpl) Git.with(TaskListener.NULL, new EnvVars()).in(currentDir).using("git").getClient();
+        boolean currentDirIsShallow = currentDirCliGit.isShallowRepository();
 
+        mirrorParent = Files.createTempDirectory("mirror").toFile();
         /* Clone mirror into mirrorParent/git-client-plugin.git as a bare repo */
         CliGitCommand mirrorParentGitCmd = new CliGitCommand(Git.with(TaskListener.NULL, new EnvVars()).in(mirrorParent).using("git").getClient());
-        mirrorParentGitCmd.run("clone",
-                // "--reference", currentDir.getAbsolutePath(), // --reference of shallow repo fails
-                "--mirror", "https://github.com/jenkinsci/git-client-plugin");
+        if (currentDirIsShallow) {
+            mirrorParentGitCmd.run("clone",
+                    // "--reference", currentDir.getAbsolutePath(), // --reference of shallow repo fails
+                    "--mirror", "https://github.com/jenkinsci/git-client-plugin");
+        } else {
+            mirrorParentGitCmd.run("clone",
+                    "--reference", currentDir.getAbsolutePath(),
+                    "--mirror", "https://github.com/jenkinsci/git-client-plugin");
+        }
         File mirrorDir = new File(mirrorParent, "git-client-plugin.git");
         assertTrue("Git client mirror repo not created at " + mirrorDir.getAbsolutePath(), mirrorDir.exists());
         GitClient mirrorClient = Git.with(TaskListener.NULL, new EnvVars()).in(mirrorDir).using("git").getClient();
