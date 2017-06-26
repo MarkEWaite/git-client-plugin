@@ -1778,13 +1778,28 @@ public abstract class GitAPITestCase extends TestCase {
         }
     }
 
-    public void test_notes_add() throws Exception {
+    public void test_notes_add_first_note() throws Exception {
         w.init();
         w.touch("file1");
         w.git.add("file1");
         w.commitEmpty("init");
 
         w.git.addNote("foo", "commits");
+        assertEquals("foo\n", w.cmd("git notes show"));
+        w.git.appendNote("alpha\rbravo\r\ncharlie\r\n\r\nbar\n\n\nzot\n\n", "commits");
+        // cgit normalizes CR+LF aggressively
+        // it appears to be collpasing CR+LF to LF, then truncating duplicate LFs down to 2
+        // note that CR itself is left as is
+        assertEquals("foo\n\nalpha\rbravo\ncharlie\n\nbar\n\nzot\n", w.cmd("git notes show"));
+    }
+
+    public void test_notes_append_first_note() throws Exception {
+        w.init();
+        w.touch("file1");
+        w.git.add("file1");
+        w.commitEmpty("init");
+
+        w.git.appendNote("foo", "commits");
         assertEquals("foo\n", w.cmd("git notes show"));
         w.git.appendNote("alpha\rbravo\r\ncharlie\r\n\r\nbar\n\n\nzot\n\n", "commits");
         // cgit normalizes CR+LF aggressively
@@ -2677,6 +2692,15 @@ public abstract class GitAPITestCase extends TestCase {
         assertFalse(ws2.exists(".git/refs/remotes/origin/b1"));
         assertTrue( ws2.exists(".git/refs/remotes/origin/b2"));
         assertFalse(ws2.exists(".git/refs/remotes/origin/b3"));
+
+        String uriSyntaxExceptionRepoPath = "xyzzy://" + r.repoPath();
+        ws1.cmd("git remote add uri-syntax-exception " + uriSyntaxExceptionRepoPath);
+        try {
+            ws2.git.prune(new RemoteConfig(new Config(), uriSyntaxExceptionRepoPath));
+            fail("Missed expected GitException on URI syntax error");
+        } catch (GitException ge) {
+            assertThat(ge.getMessage(), containsString("Invalid URL"));
+        }
     }
 
     public void test_revListAll() throws Exception {
