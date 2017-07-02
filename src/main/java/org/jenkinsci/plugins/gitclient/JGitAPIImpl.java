@@ -827,7 +827,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                                 for (String capability: capabilities) {
                                     if (capability.startsWith("symref=")) {
                                         hackWorked = true;
-                                        int index = capability.indexOf(":", 7);
+                                        int index = capability.indexOf(':', 7);
                                         if (index != -1) {
                                             references.put(capability.substring(7, index), capability.substring(index+1));
                                         }
@@ -1474,6 +1474,11 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                         this.strategy = MergeStrategy.SIMPLE_TWO_WAY_IN_CORE;
                         return this;
                     }
+                    if (strategy == MergeCommand.Strategy.RECURSIVE_THEIRS) {
+                        this.strategy = MergeStrategy.THEIRS;
+                        return this;
+                    }
+
                     listener.getLogger().println("[WARNING] JGit doesn't fully support merge strategies. This flag is ignored");
                 }
                 return this;

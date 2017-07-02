@@ -614,8 +614,15 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
                 if (strategy != null && !strategy.isEmpty() && !strategy.equals(MergeCommand.Strategy.DEFAULT.toString())) {
                     args.add("-s");
-                    args.add(strategy);
+                    if(strategy.equals(MergeCommand.Strategy.RECURSIVE_THEIRS.toString())) {
+                        args.add("recursive");
+                        args.add("--strategy-option");
+                        args.add("theirs");
+                    } else {
+                        args.add(strategy);
+                    }
                 }
+
                 args.add(fastForwardMode);
                 args.add(rev.name());
                 launchCommand(args);
@@ -2459,11 +2466,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
             launchCommand("commit", "-F", f.getAbsolutePath());
 
-        } catch (GitException e) {
-            throw new GitException("Cannot commit " + message, e);
-        } catch (FileNotFoundException e) {
-            throw new GitException("Cannot commit " + message, e);
-        } catch (IOException e) {
+        } catch (GitException | IOException e) {
             throw new GitException("Cannot commit " + message, e);
         } finally {
             deleteTempFile(f);

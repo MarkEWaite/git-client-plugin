@@ -2692,15 +2692,6 @@ public abstract class GitAPITestCase extends TestCase {
         assertFalse(ws2.exists(".git/refs/remotes/origin/b1"));
         assertTrue( ws2.exists(".git/refs/remotes/origin/b2"));
         assertFalse(ws2.exists(".git/refs/remotes/origin/b3"));
-
-        String uriSyntaxExceptionRepoPath = "xyzzy://" + r.repoPath();
-        ws1.cmd("git remote add uri-syntax-exception " + uriSyntaxExceptionRepoPath);
-        try {
-            ws2.git.prune(new RemoteConfig(new Config(), uriSyntaxExceptionRepoPath));
-            fail("Missed expected GitException on URI syntax error");
-        } catch (GitException ge) {
-            assertThat(ge.getMessage(), containsString("Invalid URL"));
-        }
     }
 
     public void test_revListAll() throws Exception {
@@ -4471,8 +4462,44 @@ public abstract class GitAPITestCase extends TestCase {
         }
     }
 
+    @Bug(40023)
+    public void test_changelog_with_merge_commit_and_max_log_history() throws Exception {
+        w.init();
+        w.commitEmpty("init");
+
+        // First commit to branch-1
+        w.git.branch("branch-1");
+        w.git.checkout("branch-1");
+        w.touch("file-1", "content-1");
+        w.git.add("file-1");
+        w.git.commit("commit-1");
+        String commitSha1 = w.git.revParse("HEAD").name();
+
+        // Merge branch-1 into master
+        w.git.checkout("master");
+        String mergeMessage = "Merge message to be tested.";
+        w.git.merge().setMessage(mergeMessage).setGitPluginFastForwardMode(MergeCommand.GitPluginFastForwardMode.NO_FF).setRevisionToMerge(w.git.getHeadRev(w.repoPath(), "branch-1")).execute();
+
+        /* JGit, and git 1.7.1 handle merge commits in changelog
+         * differently than git 1.7.9 and later.  See JENKINS-40023.
+         */
+        int maxlimit;
+        if (w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 7, 9, 0)) {
+            maxlimit = 1;
+        } else if (!(w.git instanceof CliGitAPIImpl)) {
+            maxlimit = 2;
+        } else {
+            return; /* git 1.7.1 is too old, changelog is too different */
+        }
+
+        StringWriter writer = new StringWriter();
+        w.git.changelog().max(maxlimit).to(writer).execute();
+        assertThat(writer.toString(),not(isEmptyString()));
+    }
+
     /** inline ${@link hudson.Functions#isWindows()} to prevent a transient remote classloader issue */
     private boolean isWindows() {
         return File.pathSeparatorChar==';';
     }
+
 }
