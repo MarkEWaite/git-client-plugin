@@ -544,7 +544,12 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             public org.jenkinsci.plugins.gitclient.FetchCommand prune() {
-                shouldPrune = true;
+                return prune(true);
+            }
+
+            @Override
+            public org.jenkinsci.plugins.gitclient.FetchCommand prune(boolean prune) {
+                shouldPrune = prune;
                 return this;
             }
 
@@ -1310,12 +1315,24 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             public CloneCommand shallow() {
-                listener.getLogger().println("[WARNING] JGit doesn't support shallow clone. This flag is ignored");
+                return shallow(true);
+            }
+
+            @Override
+            public CloneCommand shallow(boolean shallow) {
+                if (shallow) {
+                    listener.getLogger().println("[WARNING] JGit doesn't support shallow clone. This flag is ignored");
+                }
                 return this;
             }
 
             public CloneCommand shared() {
-                this.shared = true;
+                return shared(true);
+            }
+
+            @Override
+            public CloneCommand shared(boolean shared) {
+                this.shared = shared;
                 return this;
             }
 
@@ -1368,7 +1385,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                             // we use origin as reference
                             reference = url;
                         } else {
-                            listener.getLogger().println("[WARNING] Both 'shared' and 'reference' is used, shared is ignored.");
+                            listener.getLogger().println("[WARNING] Both 'shared' and 'reference' are used, shared is ignored.");
                         }
                     }
 
@@ -1758,7 +1775,12 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             public PushCommand force() {
-                this.force = true;
+                return force(true);
+            }
+
+            @Override
+            public PushCommand force(boolean force) {
+                this.force = force;
                 return this;
             }
 
@@ -1861,12 +1883,22 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public List<ObjectId> out;
 
             public RevListCommand all() {
-                this.all = true;
+                return all(true);
+            }
+
+            @Override
+            public RevListCommand all(boolean all) {
+                this.all = all;
                 return this;
             }
 
             public RevListCommand firstParent() {
-                this.firstParent = true;
+                return firstParent(true);
+            }
+
+            @Override
+            public RevListCommand firstParent(boolean firstParent) {
+                this.firstParent = firstParent;
                 return this;
             }
 
