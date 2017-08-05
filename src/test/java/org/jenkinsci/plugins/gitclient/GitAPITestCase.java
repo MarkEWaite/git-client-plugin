@@ -4559,17 +4559,6 @@ public abstract class GitAPITestCase extends TestCase {
         assert_longpaths(w, false);
     }
 
-    @NotImplementedInJGit
-    /* Not implemented in JGit because it is not needed there */
-    public void test_git_ssh_executable_found_on_windows() throws Exception {
-        setTimeoutVisibleInCurrentTest(false);
-        if (!SystemUtils.IS_OS_WINDOWS) {
-            return;
-        }
-
-        assertTrue("ssh.exe not found", w.cgit().getSSHExecutable().exists());
-    }
-
     private ObjectId commitOneFile(String fileName) throws IOException, GitException, InterruptedException {
         final String fileContent = fileName + " file content " + UUID.randomUUID().toString();
         w.touch(fileName, fileContent);
