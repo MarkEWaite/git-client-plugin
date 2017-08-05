@@ -31,7 +31,7 @@ import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
@@ -296,7 +296,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             public FetchCommand prune() {
-                this.prune = true;
+                return prune(true);
+            }
+
+            public FetchCommand prune(boolean prune) {
+                this.prune = prune;
                 return this;
             }
 
@@ -433,12 +437,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             public CloneCommand shared() {
-                this.shared = true;
+                return shared(true);
+            }
+
+            @Override
+            public CloneCommand shared(boolean shared) {
+                this.shared = shared;
                 return this;
             }
 
             public CloneCommand shallow() {
-                this.shallow = true;
+                return shallow(true);
+            }
+
+            @Override
+            public CloneCommand shallow(boolean shallow) {
+                this.shallow = shallow;
                 return this;
             }
 
@@ -614,8 +628,15 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
                 if (strategy != null && !strategy.isEmpty() && !strategy.equals(MergeCommand.Strategy.DEFAULT.toString())) {
                     args.add("-s");
-                    args.add(strategy);
+                    if(strategy.equals(MergeCommand.Strategy.RECURSIVE_THEIRS.toString())) {
+                        args.add("recursive");
+                        args.add("--strategy-option");
+                        args.add("theirs");
+                    } else {
+                        args.add(strategy);
+                    }
                 }
+
                 args.add(fastForwardMode);
                 args.add(rev.name());
                 launchCommand(args);
@@ -1939,7 +1960,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             public PushCommand force() {
-                this.force = true;
+                return force(true);
+            }
+
+            @Override
+            public PushCommand force(boolean force) {
+                this.force = force;
                 return this;
             }
 
@@ -2340,12 +2366,22 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             public List<ObjectId> out;
 
             public RevListCommand all() {
-                this.all = true;
-                return this;
+                return all(true);
             }
 
+            @Override
+            public RevListCommand all(boolean all) {
+                this.all = all;
+                return this;
+            }
+            
             public RevListCommand firstParent() {
-                this.firstParent = true;
+                return firstParent(true);
+            }
+
+            @Override
+            public RevListCommand firstParent(boolean firstParent) {
+                this.firstParent = firstParent;
                 return this;
             }
 
@@ -2520,11 +2556,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     @NonNull
     public Repository getRepository() throws GitException {
         try {
-            return FileRepositoryBuilder.create(new File(workspace, Constants.DOT_GIT));
+            return new RepositoryBuilder().setWorkTree(workspace).build();
         } catch (IOException e) {
-            throw new GitException("Failed to open Git repository " + workspace, e);
+            throw new GitException(e);
         }
     }
+
 
     /**
      * getWorkTree.
