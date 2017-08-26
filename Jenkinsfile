@@ -13,7 +13,7 @@ node {
               branches: scm.branches,
               extensions: [
                 [$class: 'CloneOption', honorRefspec: false, noTags: false],
-                [$class: 'LocalBranch', localBranch: scm.branches[0]],
+                [$class: 'LocalBranch', localBranch: scm.branches[0].getName()],
               ],
               userRemoteConfigs: scm.userRemoteConfigs
              ]
