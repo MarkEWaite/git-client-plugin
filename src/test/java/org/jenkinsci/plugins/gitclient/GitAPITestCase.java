@@ -2418,7 +2418,7 @@ public abstract class GitAPITestCase extends TestCase {
 
         /* Confirm first checkout */
         String pomContent = w.contentOf("pom.xml");
-        assertTrue("Missing jacoco ref in master pom : " + pomContent, pomContent.contains("jacoco"));
+        assertTrue("Missing inceptionYear ref in master pom : " + pomContent, pomContent.contains("inceptionYear"));
         assertFalse("Found untracked file", w.file("untracked-file").exists());
 
         /* Modify the pom file by adding a comment */
@@ -2440,9 +2440,9 @@ public abstract class GitAPITestCase extends TestCase {
         }
         cmd.execute();
 
-        /* Tracked file should not contain added comment, nor the jacoco reference */
+        /* Tracked file should not contain added comment, nor the inceptionYear reference */
         pomContent = w.contentOf("pom.xml");
-        assertFalse("Found jacoco ref in 1.4.x pom : " + pomContent, pomContent.contains("jacoco"));
+        assertFalse("Found inceptionYear ref in 1.4.x pom : " + pomContent, pomContent.contains("inceptionYear"));
         assertFalse("Found comment in 1.4.x pom", pomContent.contains(comment));
         assertTrue("Missing untracked file", w.file("untracked-file").exists());
     }
@@ -3377,7 +3377,7 @@ public abstract class GitAPITestCase extends TestCase {
         assertEquals("heads is " + heads, heads.get("refs/heads/master"), master1);
         ObjectId getSubmodules1 = w.git.getHeadRev(localMirror(), "X/g*[b]m*dul*"); // matches tests/getSubmodules
         assertEquals("heads is " + heads, heads.get("refs/heads/tests/getSubmodules"), getSubmodules1);
-        ObjectId getSubmodules = w.git.getHeadRev(localMirror(), "N/*od*");
+        ObjectId getSubmodules = w.git.getHeadRev(localMirror(), "N/*et*mod*");
         assertEquals("heads is " + heads, heads.get("refs/heads/tests/getSubmodules"), getSubmodules);
     }
 
