@@ -5,21 +5,20 @@ properties([[$class: 'BuildDiscarderProperty',
                 strategy: [$class: 'LogRotator', numToKeepStr: '10']]])
 
 def repo='https://github.com/jenkinsci/git-client-plugin'
-def branch="${env.BRANCH_NAME}"
 
 node {
   stage('Checkout') {
-    echo "Starting checkout for ${branch} in Checkout stage"
+    echo "Starting checkout for ${scm.branches} in Checkout stage"
     checkout([$class: 'GitSCM',
-              branches: [[name: branch]],
+              branches: scm.branches,
               extensions: [
                 [$class: 'CloneOption', honorRefspec: false, noTags: false],
-                [$class: 'LocalBranch', localBranch: branch],
+                [$class: 'LocalBranch', localBranch: scm.branches[0]],
               ],
-              userRemoteConfigs: [[url: repo]]
+              userRemoteConfigs: scm.userRemoteConfigs
              ]
             )
-    echo "Finished checkout for ${branch} in Checkout stage"
+    echo "Finished checkout for ${scm.branches} in Checkout stage"
   }
 
   stage('Build') {
