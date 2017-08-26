@@ -9,17 +9,17 @@ def branch="${env.BRANCH_NAME}"
 
 node {
   stage('Checkout') {
-    echo "Checking out ${env.BRANCH} in Checkout stage"
+    echo "Starting checkout for ${branch} in Checkout stage"
     checkout([$class: 'GitSCM',
               branches: [[name: branch]],
               extensions: [
                 [$class: 'CloneOption', honorRefspec: false, noTags: false],
-                [$class: 'LocalBranch', localBranch: '**'],
+                [$class: 'LocalBranch', localBranch: branch],
               ],
               userRemoteConfigs: [[url: repo]]
              ]
             )
-    echo "Checkout complete for ${env.BRANCH} in Checkout stage"
+    echo "Finished checkout for ${branch} in Checkout stage"
   }
 
   stage('Build') {
