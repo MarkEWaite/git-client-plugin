@@ -1502,6 +1502,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 return createTempFileInSystemDir(prefix, suffix);
             }
             return Files.createTempFile(tmpPath, prefix, suffix).toFile();
+        } else if (workspaceTmp.getAbsolutePath().contains("%")) {
+            /* Avoid Linux expansion of % in ssh arguments */
+            return createTempFileInSystemDir(prefix, suffix);
         }
         // Unix specific
         if (workspaceTmp.getAbsolutePath().contains("`")) {
@@ -1578,8 +1581,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
         File key = null;
         File ssh = null;
-        File pass = null;
-        File askpass = null;
+        File passCmd = null;
+        File passphrase = null;
+        File usernameFile = null;
+        File passwordFile = null;
+        File store = null;
         EnvVars env = environment;
         try {
             if (credentials instanceof SSHUserPrivateKey) {
@@ -1587,17 +1593,18 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 listener.getLogger().println("using GIT_SSH to set credentials " + sshUser.getDescription());
 
                 key = createSshKeyFile(sshUser);
+                passphrase = createPassphraseFile(sshUser);
                 if (launcher.isUnix()) {
                     ssh =  createUnixGitSSH(key, sshUser.getUsername());
-                    pass =  createUnixSshAskpass(sshUser);
+                    passCmd =  createUnixSshAskpass(sshUser, passphrase);
                 } else {
                     ssh =  createWindowsGitSSH(key, sshUser.getUsername());
-                    pass =  createWindowsSshAskpass(sshUser);
+                    passCmd =  createWindowsSshAskpass(sshUser, passphrase);
                 }
 
                 env = new EnvVars(env);
                 env.put("GIT_SSH", ssh.getAbsolutePath());
-                env.put("SSH_ASKPASS", pass.getAbsolutePath());
+                env.put("SSH_ASKPASS", passCmd.getAbsolutePath());
 
                 // supply a dummy value for DISPLAY if not already present
                 // or else ssh will not invoke SSH_ASKPASS
@@ -1609,16 +1616,18 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 StandardUsernamePasswordCredentials userPass = (StandardUsernamePasswordCredentials) credentials;
                 listener.getLogger().println("using GIT_ASKPASS to set credentials " + userPass.getDescription());
 
+                usernameFile = createUsernameFile(userPass);
+                passwordFile = createPasswordFile(userPass);
                 if (launcher.isUnix()) {
-                    askpass = createUnixStandardAskpass(userPass);
+                    passCmd = createUnixStandardAskpass(userPass, usernameFile, passwordFile);
                 } else {
-                    askpass = createWindowsStandardAskpass(userPass);
+                    passCmd = createWindowsStandardAskpass(userPass, usernameFile, passwordFile);
                 }
 
                 env = new EnvVars(env);
-                env.put("GIT_ASKPASS", askpass.getAbsolutePath());
+                env.put("GIT_ASKPASS", passCmd.getAbsolutePath());
                 // SSH binary does not recognize GIT_ASKPASS, so set SSH_ASKPASS also, in the case we have an ssh:// URL
-                env.put("SSH_ASKPASS", askpass.getAbsolutePath());
+                env.put("SSH_ASKPASS", passCmd.getAbsolutePath());
             }
 
             if ("http".equalsIgnoreCase(url.getScheme()) || "https".equalsIgnoreCase(url.getScheme())) {
@@ -1655,10 +1664,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         } catch (IOException e) {
             throw new GitException("Failed to setup credentials", e);
         } finally {
-            deleteTempFile(pass);
+            deleteTempFile(passCmd);
+            deleteTempFile(passphrase);
+            deleteTempFile(usernameFile);
+            deleteTempFile(passwordFile);
             deleteTempFile(key);
             deleteTempFile(ssh);
-            deleteTempFile(askpass);
         }
     }
 
@@ -1674,80 +1685,94 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return key;
     }
 
-    /* package protected for testability */
-    String escapeWindowsCharsForUnquotedString(String str) {
-        // Quote special characters for Windows Batch Files
-        // See: http://stackoverflow.com/questions/562038/escaping-double-quotes-in-batch-script
-        // See: http://ss64.com/nt/syntax-esc.html
-        String quoted = str.replace("%", "%%")
-                        .replace("^", "^^")
-                        .replace(" ", "^ ")
-                        .replace("\t", "^\t")
-                        .replace("\\", "^\\")
-                        .replace("&", "^&")
-                        .replace("|", "^|")
-                        .replace("\"", "^\"")
-                        .replace(">", "^>")
-                        .replace("<", "^<");
-        return quoted;
+    /* Escape all double quotes in filename, then surround filename in double quotes.
+     * Only useful to prepare filename for reference from a DOS batch file.
+     */
+    private String windowsArgEncodeFileName(String filename) {
+        if (filename.contains("\"")) {
+            filename = filename.replaceAll("\"", "^\"");
+        }
+        return "'" + filename + "'";
     }
 
-    private String quoteUnixCredentials(String str) {
-        // Assumes string will be used inside of single quotes, as it will
-        // only replace "'" substrings.
-        return str.replace("'", "'\\''");
-    }
-
-    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
-        File ssh = createTempFile("pass", ".bat");
-        try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
+    private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
+        File ssh = File.createTempFile("pass", ".bat");
+        try (PrintWriter w = new PrintWriter(ssh, "UTF-8")) {
             // avoid echoing command as part of the password
             w.println("@echo off");
-            // no surrounding double quotes on windows echo -- they are echoed too
-            w.println("echo " + escapeWindowsCharsForUnquotedString(Secret.toString(sshUser.getPassphrase())));
+            w.println("type " + windowsArgEncodeFileName(passphrase.getAbsolutePath()));
             w.flush();
         }
         ssh.setExecutable(true, true);
         return ssh;
     }
 
-    private File createUnixSshAskpass(SSHUserPrivateKey sshUser) throws IOException {
+    /* Escape all single quotes in filename, then surround filename in single quotes.
+     * Only useful to prepare filename for reference from a shell script.
+     */
+    private String unixArgEncodeFileName(String filename) {
+        if (filename.contains("'")) {
+            filename = filename.replaceAll("'", "\\'");
+        }
+        return "'" + filename + "'";
+    }
+
+    private File createUnixSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
         File ssh = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(ssh, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
-            w.println("echo '" + quoteUnixCredentials(Secret.toString(sshUser.getPassphrase())) + "'");
+            w.println("cat " + unixArgEncodeFileName(passphrase.getAbsolutePath()));
         }
         ssh.setExecutable(true, true);
         return ssh;
     }
 
-    /* Package protected for testability */
-    File createWindowsBatFile(String userName, String password) throws IOException {
+    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds, File usernameFile, File passwordFile) throws IOException {
         File askpass = createTempFile("pass", ".bat");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("@set arg=%~1");
-            w.println("@if (%arg:~0,8%)==(Username) echo " + escapeWindowsCharsForUnquotedString(userName));
-            w.println("@if (%arg:~0,8%)==(Password) echo " + escapeWindowsCharsForUnquotedString(password));
+            w.println("@if (%arg:~0,8%)==(Username) type " + windowsArgEncodeFileName(usernameFile.getAbsolutePath()));
+            w.println("@if (%arg:~0,8%)==(Password) type " + windowsArgEncodeFileName(passwordFile.getAbsolutePath()));
         }
         askpass.setExecutable(true, true);
         return askpass;
     }
 
-    private File createWindowsStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
-        return createWindowsBatFile(creds.getUsername(), Secret.toString(creds.getPassword()));
-    }
-
-    private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds) throws IOException {
+    private File createUnixStandardAskpass(StandardUsernamePasswordCredentials creds, File usernameFile, File passwordFile) throws IOException {
         File askpass = createTempFile("pass", ".sh");
         try (PrintWriter w = new PrintWriter(askpass, Charset.defaultCharset().toString())) {
             w.println("#!/bin/sh");
             w.println("case \"$1\" in");
-            w.println("Username*) echo '" + quoteUnixCredentials(creds.getUsername()) + "' ;;");
-            w.println("Password*) echo '" + quoteUnixCredentials(Secret.toString(creds.getPassword())) + "' ;;");
+            w.println("Username*) cat " + unixArgEncodeFileName(usernameFile.getAbsolutePath()) + " ;;");
+            w.println("Password*) cat " + unixArgEncodeFileName(passwordFile.getAbsolutePath()) + " ;;");
             w.println("esac");
         }
         askpass.setExecutable(true, true);
         return askpass;
+    }
+
+    private File createPassphraseFile(SSHUserPrivateKey sshUser) throws IOException {
+        File passphraseFile = createTempFile("phrase", ".txt");
+        try (PrintWriter w = new PrintWriter(passphraseFile, "UTF-8")) {
+            w.println(Secret.toString(sshUser.getPassphrase()));
+        }
+        return passphraseFile;
+    }
+
+    private File createUsernameFile(StandardUsernamePasswordCredentials userPass) throws IOException {
+        File usernameFile = createTempFile("username", ".txt");
+        try (PrintWriter w = new PrintWriter(usernameFile, "UTF-8")) {
+            w.println(userPass.getUsername());
+        }
+        return usernameFile;
+    }
+
+    private File createPasswordFile(StandardUsernamePasswordCredentials userPass) throws IOException {
+        File passwordFile = createTempFile("password", ".txt");
+        try (PrintWriter w = new PrintWriter(passwordFile, "UTF-8")) {
+            w.println(Secret.toString(userPass.getPassword()));
+        }
+        return passwordFile;
     }
 
     private String getPathToExe(String userGitExe) {
@@ -1938,10 +1963,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return result;
         } catch (GitException | InterruptedException e) {
             throw e;
-        } catch (IOException e) {
-            throw new GitException("Error performing command: " + command, e);
-        } catch (Throwable t) {
-            throw new GitException("Error performing git command", t);
+        } catch (Throwable e) {
+            throw new GitException("Error performing git command: " + command, e);
         }
 
     }
