@@ -1,6 +1,8 @@
 Utility plugin for Git-related support
 ======================================
 
+Submodule tests prototype - KNOWN FAILING TESTS
+
 Extracted from [git-plugin](https://wiki.jenkins-ci.org/display/JENKINS/Git+Plugin)
 to make it easier for other plugins to use and contribute new features.
 Includes JGit as a library so that other Jenkins components can rely on

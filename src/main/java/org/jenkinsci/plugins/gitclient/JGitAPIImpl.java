@@ -401,6 +401,9 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private void doCheckoutCleanBranch(String branch, String ref) throws GitException {
         try (Repository repo = getRepository()) {
             RefUpdate refUpdate = repo.updateRef(R_HEADS + branch);
+            if (repo.resolve(ref) == null) {
+                throw new GitException("Could not resolve ref '" + ref + "'");
+            }
             refUpdate.setNewObjectId(repo.resolve(ref));
             switch (refUpdate.forceUpdate()) {
             case NOT_ATTEMPTED:
