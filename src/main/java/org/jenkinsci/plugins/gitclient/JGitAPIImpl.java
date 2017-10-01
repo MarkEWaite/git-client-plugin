@@ -185,6 +185,12 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /** {@inheritDoc} */
+    public List<StandardCredentials> getCredentials() {
+        return asSmartCredentialsProvider().getCredentials();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void addDefaultCredentials(StandardCredentials credentials) {
         asSmartCredentialsProvider().addDefaultCredentials(credentials);
     }
