@@ -1775,7 +1775,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         if (filename.contains("\"")) {
             filename = filename.replaceAll("\"", "^\"");
         }
-        return "'" + filename + "'";
+        return "\"" + filename + "\"";
     }
 
     private File createWindowsSshAskpass(SSHUserPrivateKey sshUser, @NonNull File passphrase) throws IOException {
