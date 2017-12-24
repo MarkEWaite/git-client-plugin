@@ -589,7 +589,12 @@ public class GitClientTest {
     private int lastFetchPath = -1;
 
     /* Dirty, dirty hack for exploring */
-    private boolean avoidJGit492DuplicateRefException = false;
+    /* Three states:
+    * - null -> randomize fetch settings
+    * - false -> force fetch settings to fail JGit 4.9.2 with duplicate ref exception
+    * - true  -> force fetch settings to pass JGit 4.9.2 (no duplicate ref exception)
+    */
+    private Boolean avoidJGit492DuplicateRefException = null;
 
     private void fetch(GitClient client, String remote, String firstRefSpec, String... optionalRefSpecs) throws Exception {
         List<RefSpec> refSpecs = new ArrayList<>();
@@ -598,7 +603,7 @@ public class GitClientTest {
         for (String refSpecString : optionalRefSpecs) {
             refSpecs.add(new RefSpec(refSpecString));
         }
-        lastFetchPath = avoidJGit492DuplicateRefException ? 1 : random.nextInt(); // 0 always fails with JGit 4.9.2, 1 fails with JGit 4.9.2 if fetchTags is true
+        lastFetchPath = (avoidJGit492DuplicateRefException != null && avoidJGit492DuplicateRefException) ? 1 : random.nextInt(); // 0 always fails with JGit 4.9.2, 1 fails with JGit 4.9.2 if fetchTags is true
         switch (lastFetchPath) {
             default:
             case 0:
@@ -610,7 +615,10 @@ public class GitClientTest {
                 break;
             case 1:
                 URIish repoURL = new URIish(client.getRepository().getConfig().getString("remote", remote, "url"));
-                boolean fetchTags = avoidJGit492DuplicateRefException ? false : random.nextBoolean();
+                boolean fetchTags = (avoidJGit492DuplicateRefException != null && avoidJGit492DuplicateRefException) ? false : random.nextBoolean();
+                if (avoidJGit492DuplicateRefException != null && !avoidJGit492DuplicateRefException) {
+                    fetchTags = true; // Force the JGit 4.9.2 duplicate reference exception to be visible
+                }
                 boolean pruneBranches = random.nextBoolean();
                 if (pruneBranches) {
                     client.fetch_().from(repoURL, refSpecs).tags(fetchTags).prune().execute();
