@@ -202,7 +202,7 @@ public class GitClientTest {
 
     @Before
     public void initializeDirtyHack() {
-        testingJGit492DuplicateRefBug = false;
+        avoidJGit492DuplicateRefException = false;
     }
 
     private static final String COMMITTED_ONE_TEXT_FILE = "Committed one text file";
@@ -589,7 +589,7 @@ public class GitClientTest {
     private int lastFetchPath = -1;
 
     /* Dirty, dirty hack for exploring */
-    private boolean testingJGit492DuplicateRefBug = false;
+    private boolean avoidJGit492DuplicateRefException = false;
 
     private void fetch(GitClient client, String remote, String firstRefSpec, String... optionalRefSpecs) throws Exception {
         List<RefSpec> refSpecs = new ArrayList<>();
@@ -598,10 +598,7 @@ public class GitClientTest {
         for (String refSpecString : optionalRefSpecs) {
             refSpecs.add(new RefSpec(refSpecString));
         }
-        lastFetchPath = random.nextInt(); // 0 always fails with JGit 4.9.2, 1 fails with JGit 4.9.2 if fetchTags is true
-        if (testingJGit492DuplicateRefBug) {
-            lastFetchPath = 1;
-        }
+        lastFetchPath = avoidJGit492DuplicateRefException ? 1 : random.nextInt(); // 0 always fails with JGit 4.9.2, 1 fails with JGit 4.9.2 if fetchTags is true
         switch (lastFetchPath) {
             default:
             case 0:
@@ -613,10 +610,7 @@ public class GitClientTest {
                 break;
             case 1:
                 URIish repoURL = new URIish(client.getRepository().getConfig().getString("remote", remote, "url"));
-                boolean fetchTags = random.nextBoolean();
-                if (testingJGit492DuplicateRefBug) {
-                    fetchTags = false;
-                }
+                boolean fetchTags = avoidJGit492DuplicateRefException ? false : random.nextBoolean();
                 boolean pruneBranches = random.nextBoolean();
                 if (pruneBranches) {
                     client.fetch_().from(repoURL, refSpecs).tags(fetchTags).prune().execute();
@@ -795,7 +789,7 @@ public class GitClientTest {
 
     @Test
     public void testDeleteRef() throws Exception {
-        testingJGit492DuplicateRefBug = true;
+        avoidJGit492DuplicateRefException = true;
         assertThat(gitClient.getRefNames(""), is(empty()));
         if (gitImplName.startsWith("jgit")) {
             // JGit won't delete refs from a repo without local commits
@@ -1279,7 +1273,7 @@ public class GitClientTest {
     @Test
     public void testOutdatedSubmodulesNotRemoved() throws Exception {
         assumeTrue(CLI_GIT_SUPPORTS_SUBMODULE_DEINIT);
-        testingJGit492DuplicateRefBug = true;
+        avoidJGit492DuplicateRefException = true;
         String branch = "tests/getSubmodules";
         String[] expectedDirsWithRename = {"firewall", "ntp", "sshkeys"};
         String[] expectedDirsWithoutRename = {"firewall", "ntp"};
