@@ -797,7 +797,7 @@ public class GitClientTest {
 
     @Test
     public void testDeleteRef() throws Exception {
-        avoidJGit492DuplicateRefException = true;
+        avoidJGit492DuplicateRefException = false;
         assertThat(gitClient.getRefNames(""), is(empty()));
         if (gitImplName.startsWith("jgit")) {
             // JGit won't delete refs from a repo without local commits
@@ -812,6 +812,14 @@ public class GitClientTest {
         assertThat(gitClient.getRefNames("refs/remotes/upstream/"), hasItems(
                 "refs/remotes/upstream/tests/getSubmodules"
         ));
+    }
+
+    @Test
+    public void testDeleteRefExploration() throws Exception {
+        avoidJGit492DuplicateRefException = false;
+        assumeThat(gitImplName, startsWith("jgit"));
+        commitOneFile();
+        String upstream = fetchUpstream("tests/notSubmodules");
     }
 
     @Test(expected = GitException.class)
@@ -1281,7 +1289,7 @@ public class GitClientTest {
     @Test
     public void testOutdatedSubmodulesNotRemoved() throws Exception {
         assumeTrue(CLI_GIT_SUPPORTS_SUBMODULE_DEINIT);
-        avoidJGit492DuplicateRefException = true;
+        avoidJGit492DuplicateRefException = false;
         String branch = "tests/getSubmodules";
         String[] expectedDirsWithRename = {"firewall", "ntp", "sshkeys"};
         String[] expectedDirsWithoutRename = {"firewall", "ntp"};
