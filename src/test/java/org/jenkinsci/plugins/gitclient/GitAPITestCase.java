@@ -1323,7 +1323,6 @@ public abstract class GitAPITestCase extends TestCase {
 
     public void test_fetch_with_updated_tag() throws Exception {
         WorkingArea r = new WorkingArea();
-        RefSpec[] refSpecs = {new RefSpec("+refs/heads/master:refs/remotes/origin/master")};
         r.init();
         r.commitEmpty("init");
         r.tag("t");
@@ -1331,7 +1330,7 @@ public abstract class GitAPITestCase extends TestCase {
 
         w.init();
         w.cmd("git remote add origin " + r.repoPath());
-        w.git.fetch("origin", refSpecs);
+        w.git.fetch("origin", new RefSpec[] {null});
         assertTrue(sha1.equals(r.cmd("git rev-list --no-walk --max-count=1 t")));
 
         r.touch("file.txt");
@@ -1340,13 +1339,7 @@ public abstract class GitAPITestCase extends TestCase {
         r.tag("-d t");
         r.tag("t");
         sha1 = r.cmd("git rev-list --no-walk --max-count=1 t");
-        if (w.git instanceof CliGitAPIImpl) {
-            w.git.fetch("origin", refSpecs);
-        } else {
-            /* Dirty hack while exploring JGit 4.9.2 */
-            List<RefSpec> refSpecList = Arrays.asList(refSpecs);
-            w.git.fetch_().from(new URIish(r.repoPath()), refSpecList).tags(false).execute();
-        }
+        w.git.fetch("origin", new RefSpec[] {null});
         assertTrue(sha1.equals(r.cmd("git rev-list --max-count=1 t")));
 
     }

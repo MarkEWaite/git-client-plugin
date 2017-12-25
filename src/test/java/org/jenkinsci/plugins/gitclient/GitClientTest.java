@@ -200,11 +200,6 @@ public class GitClientTest {
         gitClient.setRemoteUrl("origin", srcRepoDir.getAbsolutePath());
     }
 
-    @Before
-    public void initializeDirtyHack() {
-        avoidJGit492DuplicateRefException = false;
-    }
-
     private static final String COMMITTED_ONE_TEXT_FILE = "Committed one text file";
 
     private ObjectId commitOneFile() throws Exception {
@@ -588,14 +583,6 @@ public class GitClientTest {
 
     private int lastFetchPath = -1;
 
-    /* Dirty, dirty hack for exploring */
-    /* Three states:
-    * - null -> randomize fetch settings
-    * - false -> force fetch settings to fail JGit 4.9.2 with duplicate ref exception
-    * - true  -> force fetch settings to pass JGit 4.9.2 (no duplicate ref exception)
-    */
-    private Boolean avoidJGit492DuplicateRefException = null;
-
     private void fetch(GitClient client, String remote, String firstRefSpec, String... optionalRefSpecs) throws Exception {
         List<RefSpec> refSpecs = new ArrayList<>();
         RefSpec refSpec = new RefSpec(firstRefSpec);
@@ -603,7 +590,7 @@ public class GitClientTest {
         for (String refSpecString : optionalRefSpecs) {
             refSpecs.add(new RefSpec(refSpecString));
         }
-        lastFetchPath = (avoidJGit492DuplicateRefException != null && avoidJGit492DuplicateRefException) ? 1 : random.nextInt(); // 0 always fails with JGit 4.9.2, 1 fails with JGit 4.9.2 if fetchTags is true
+        lastFetchPath = random.nextInt(2);
         switch (lastFetchPath) {
             default:
             case 0:
@@ -615,10 +602,7 @@ public class GitClientTest {
                 break;
             case 1:
                 URIish repoURL = new URIish(client.getRepository().getConfig().getString("remote", remote, "url"));
-                boolean fetchTags = (avoidJGit492DuplicateRefException != null && avoidJGit492DuplicateRefException) ? false : random.nextBoolean();
-                if (avoidJGit492DuplicateRefException != null && !avoidJGit492DuplicateRefException) {
-                    fetchTags = true; // Force the JGit 4.9.2 duplicate reference exception to be visible
-                }
+                boolean fetchTags = random.nextBoolean();
                 boolean pruneBranches = random.nextBoolean();
                 if (pruneBranches) {
                     client.fetch_().from(repoURL, refSpecs).tags(fetchTags).prune().execute();
@@ -795,9 +779,15 @@ public class GitClientTest {
         assertEquals("Incorrect non-LFS file contents in " + uuidFile, expectedContent, fileContent);
     }
 
+    /*
+     * JGit versions prior to 4.9.0 required a work around that the
+     * tags refspec had to be passed in addition to setting the
+     * FETCH_TAGS tagOpt.  JGit 4.9.0 fixed that bug.  This test would
+     * throw a DuplicateRef exception with JGit 4.9.0 prior to the
+     * remocal of the work around (from JGitAPIImpl).
+     */
     @Test
     public void testDeleteRef() throws Exception {
-        avoidJGit492DuplicateRefException = false;
         assertThat(gitClient.getRefNames(""), is(empty()));
         if (gitImplName.startsWith("jgit")) {
             // JGit won't delete refs from a repo without local commits
@@ -812,14 +802,6 @@ public class GitClientTest {
         assertThat(gitClient.getRefNames("refs/remotes/upstream/"), hasItems(
                 "refs/remotes/upstream/tests/getSubmodules"
         ));
-    }
-
-    @Test
-    public void testDeleteRefExploration() throws Exception {
-        avoidJGit492DuplicateRefException = false;
-        assumeThat(gitImplName, startsWith("jgit"));
-        commitOneFile();
-        String upstream = fetchUpstream("tests/notSubmodules");
     }
 
     @Test(expected = GitException.class)
@@ -1289,7 +1271,6 @@ public class GitClientTest {
     @Test
     public void testOutdatedSubmodulesNotRemoved() throws Exception {
         assumeTrue(CLI_GIT_SUPPORTS_SUBMODULE_DEINIT);
-        avoidJGit492DuplicateRefException = false;
         String branch = "tests/getSubmodules";
         String[] expectedDirsWithRename = {"firewall", "ntp", "sshkeys"};
         String[] expectedDirsWithoutRename = {"firewall", "ntp"};
