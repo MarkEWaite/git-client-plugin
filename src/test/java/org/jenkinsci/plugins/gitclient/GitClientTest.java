@@ -784,7 +784,7 @@ public class GitClientTest {
      * tags refspec had to be passed in addition to setting the
      * FETCH_TAGS tagOpt.  JGit 4.9.0 fixed that bug.  This test would
      * throw a DuplicateRef exception with JGit 4.9.0 prior to the
-     * remocal of the work around (from JGitAPIImpl).
+     * removal of the work around (from JGitAPIImpl).
      */
     @Test
     public void testDeleteRef() throws Exception {
