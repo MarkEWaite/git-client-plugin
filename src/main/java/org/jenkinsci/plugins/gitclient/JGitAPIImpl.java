@@ -619,6 +619,9 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
                     FetchCommand fetch = git.fetch();
                     fetch.setTagOpt(tags ? TagOpt.FETCH_TAGS : TagOpt.NO_TAGS);
+                    if (allRefSpecs.isEmpty() && tags) {
+                        allRefSpecs.add(new RefSpec("+refs/tags/*:refs/tags/*"));
+                    }
                     fetch.setRemote(url.toString());
                     fetch.setCredentialsProvider(getProvider());
 
