@@ -360,7 +360,7 @@ public class CredentialsTest {
         }
     }
 
-    @Test
+    // @Test
     public void testFetchWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
@@ -395,7 +395,7 @@ public class CredentialsTest {
         checkExpectedLogSubstring();
     }
 
-    @Test
+    // @Test
     public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         addExpectedLogSubstring("Using reference repository: ");
         File clonedFile = new File(repo, fileToCheck);
