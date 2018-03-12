@@ -59,6 +59,7 @@ import org.eclipse.jgit.api.MergeResult;
 import org.eclipse.jgit.api.MergeCommand.FastForwardMode;
 import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.ShowNoteCommand;
+import org.eclipse.jgit.api.TransportCommand;
 import org.eclipse.jgit.api.errors.CheckoutConflictException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.JGitInternalException;
@@ -146,6 +147,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private PersonIdent author, committer;
 
     private transient CredentialsProvider provider;
+    private transient int lastTimeout = 0; // Used in tests
 
     JGitAPIImpl(File workspace, TaskListener listener) {
         /* If workspace is null, then default to current directory to match
@@ -541,6 +543,33 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
     }
 
+    static final int MAX_TIMEOUT = 1 << 15; // Avoid JGit integer overflow
+
+    private void setTransportTimeout(TransportCommand transport, String operationName, Integer timeoutInMinutes) {
+        lastTimeout = 0;
+        if (timeoutInMinutes != null) {
+            if (timeoutInMinutes > MAX_TIMEOUT) {
+                listener.getLogger().println("[WARNING] JGit " + operationName + " ignoring timeout " + timeoutInMinutes + " > " + MAX_TIMEOUT);
+            } else if (timeoutInMinutes < 1) {
+                listener.getLogger().println("[WARNING] JGit " + operationName + " ignoring timeout " + timeoutInMinutes + " < 1");
+            } else {
+                try {
+                    int timeoutInSeconds = Math.multiplyExact(timeoutInMinutes, 60);
+                    transport.setTimeout(timeoutInSeconds);
+                    lastTimeout = timeoutInMinutes;
+                    listener.getLogger().println("JGit " + operationName + " using " + timeoutInMinutes + " minute timeout");
+                } catch (ArithmeticException ae) {
+                    listener.getLogger().println("[WARNING] JGit " + operationName + " ignoring excessive " + timeoutInMinutes + " minute timeout");
+                }
+            }
+        }
+    }
+
+    /* Package protected for test use */
+    int getLastTimeout() {
+        return lastTimeout;
+    }
+
     /**
      * fetch_.
      *
@@ -553,6 +582,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             private List<RefSpec> refspecs;
             private boolean shouldPrune = false;
             private boolean tags = true;
+            private Integer timeout;
 
             @Override
             public org.jenkinsci.plugins.gitclient.FetchCommand from(URIish remote, List<RefSpec> refspecs) {
@@ -582,7 +612,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             @Override
             public org.jenkinsci.plugins.gitclient.FetchCommand timeout(Integer timeout) {
-                // noop in jgit
+                this.timeout = timeout;
                 return this;
             }
 
@@ -624,7 +654,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
                     fetch.setRefSpecs(allRefSpecs);
                     fetch.setRemoveDeletedRefs(shouldPrune);
-
+                    setTransportTimeout(fetch, "fetch", timeout);
                     fetch.call();
                 } catch (GitAPIException e) {
                     throw new GitException(e);
@@ -1473,7 +1503,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                             .setCredentialsProvider(getProvider())
                             .setTagOpt(tags ? TagOpt.FETCH_TAGS : TagOpt.NO_TAGS)
                             .setRefSpecs(refspecs);
-                    if (timeout != null) fetch.setTimeout(timeout);
+                    setTransportTimeout(fetch, "fetch", timeout);
                     fetch.call();
 
                     StoredConfig config = repository.getConfig();
@@ -1820,6 +1850,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             private String refspec;
             private boolean force;
             private boolean tags;
+            private Integer timeout;
 
             @Override
             public PushCommand to(URIish remote) {
@@ -1852,7 +1883,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             @Override
             public PushCommand timeout(Integer timeout) {
-            	// noop in jgit
+                this.timeout = timeout;
                 return this;
             }
 
@@ -1871,6 +1902,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     if(tags) {
                         pc.setPushTags();
                     }
+                    setTransportTimeout(pc, "push", timeout);
                     Iterable<PushResult> results = pc.call();
                     for(PushResult result:results) for(RemoteRefUpdate update:result.getRemoteUpdates()) {
                         RemoteRefUpdate.Status status = update.getStatus();
@@ -2160,6 +2192,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             private boolean recursive      = false;
             private boolean remoteTracking = false;
             private String  ref            = null;
+            private Integer timeout;
 
             @Override
             public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand recursive(boolean recursive) {
@@ -2187,7 +2220,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             @Override
             public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand timeout(Integer timeout) {
-            	// noop in jgit
+                this.timeout = timeout;
                 return this;
             }
 
@@ -2237,6 +2270,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 try (Repository repo = getRepository()) {
                     SubmoduleUpdateCommand update = git(repo).submoduleUpdate();
                     update.setCredentialsProvider(getProvider());
+                    setTransportTimeout(update, "update", timeout);
                     update.call();
                     if (recursive) {
                         for (JGitAPIImpl sub : submodules()) {

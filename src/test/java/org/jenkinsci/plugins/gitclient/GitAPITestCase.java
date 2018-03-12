@@ -153,6 +153,19 @@ public abstract class GitAPITestCase extends TestCase {
         assertEquals(substringMessages, substringTimeoutMessages);
     }
 
+    private void assertLogContains(final String substring) {
+        List<String> messages = handler.getMessages();
+        List<String> substringMessages = new ArrayList<>();
+        final String messageRegEx = ".*\\b" + substring + "\\b.*"; // the expected substring
+        for (String message : messages) {
+            if (message.matches(messageRegEx)) {
+                substringMessages.add(message);
+            }
+        }
+        assertThat(messages, is(not(empty())));
+        assertFalse("No match for '" + substring + "' in " + messages, substringMessages.isEmpty());
+    }
+
     /**
      * One local workspace of a Git repository on a temporary directory
      * that gets automatically cleaned up in the end.
@@ -1331,6 +1344,76 @@ public abstract class GitAPITestCase extends TestCase {
         List<RefSpec> refspecs = Collections.singletonList(new RefSpec("refs/heads/*:refs/remotes/origin/*"));
         fetchTimeout = 1 + random.nextInt(24 * 60);
         w.git.fetch_().from(new URIish("origin"), refspecs).timeout(fetchTimeout).execute();
+        if (!(w.git instanceof CliGitAPIImpl)) {
+            assertThat(((JGitAPIImpl)w.git).getLastTimeout(), is(fetchTimeout));
+        }
+    }
+
+    @NotImplementedInCliGit
+    public void test_fetch_timeout_allowed_value() throws Exception {
+        w.init();
+        w.git.setRemoteUrl("origin", localMirror());
+        List<RefSpec> refspecs = Collections.singletonList(new RefSpec("refs/heads/*:refs/remotes/origin/*"));
+        fetchTimeout = 1 + random.nextInt(JGitAPIImpl.MAX_TIMEOUT);
+        w.git.fetch_().from(new URIish("origin"), refspecs).timeout(fetchTimeout).execute();
+        assertLogContains(" using " + fetchTimeout + " minute timeout");
+        assertThat(((JGitAPIImpl)w.git).getLastTimeout(), is(fetchTimeout));
+    }
+
+    @NotImplementedInCliGit
+    public void test_fetch_timeout_max_allowed_value() throws Exception {
+        w.init();
+        w.git.setRemoteUrl("origin", localMirror());
+        List<RefSpec> refspecs = Collections.singletonList(new RefSpec("refs/heads/*:refs/remotes/origin/*"));
+        fetchTimeout = JGitAPIImpl.MAX_TIMEOUT;
+        w.git.fetch_().from(new URIish("origin"), refspecs).timeout(fetchTimeout).execute();
+        assertLogContains(" using " + fetchTimeout + " minute timeout");
+        assertThat(((JGitAPIImpl)w.git).getLastTimeout(), is(fetchTimeout));
+    }
+
+    /**
+     * JGit ignores out of range timeout values.
+     */
+    @NotImplementedInCliGit
+    public void test_fetch_timeout_ignores_exceeds_range() throws Exception {
+        w.init();
+        w.git.setRemoteUrl("origin", localMirror());
+        List<RefSpec> refspecs = Collections.singletonList(new RefSpec("refs/heads/*:refs/remotes/origin/*"));
+
+        fetchTimeout = JGitAPIImpl.MAX_TIMEOUT + random.nextInt(Integer.MAX_VALUE - JGitAPIImpl.MAX_TIMEOUT);
+        w.git.fetch_().from(new URIish("origin"), refspecs).timeout(fetchTimeout).execute();
+        assertThat(((JGitAPIImpl)w.git).getLastTimeout(), is(0));
+        assertLogContains(" ignoring timeout " + fetchTimeout + " > " + JGitAPIImpl.MAX_TIMEOUT);
+    }
+
+    /**
+     * JGit ignores out of range timeout values.
+     */
+    @NotImplementedInCliGit
+    public void test_fetch_timeout_ignores_under_range() throws Exception {
+        w.init();
+        w.git.setRemoteUrl("origin", localMirror());
+        List<RefSpec> refspecs = Collections.singletonList(new RefSpec("refs/heads/*:refs/remotes/origin/*"));
+
+        fetchTimeout = 0 - random.nextInt(24 * 60); // Negative value
+        w.git.fetch_().from(new URIish("origin"), refspecs).timeout(fetchTimeout).execute();
+        assertThat(((JGitAPIImpl)w.git).getLastTimeout(), is(0));
+        assertLogContains("ignoring timeout " + fetchTimeout + " < 1");
+    }
+
+    /**
+     * JGit ignores out of range timeout values.
+     */
+    @NotImplementedInCliGit
+    public void test_fetch_timeout_integer_overflow() throws Exception {
+        w.init();
+        w.git.setRemoteUrl("origin", localMirror());
+        List<RefSpec> refspecs = Collections.singletonList(new RefSpec("refs/heads/*:refs/remotes/origin/*"));
+
+        fetchTimeout = Integer.MAX_VALUE - random.nextInt(Integer.MAX_VALUE / 60); // Integer overflow region
+        w.git.fetch_().from(new URIish("origin"), refspecs).timeout(fetchTimeout).execute();
+        assertThat(((JGitAPIImpl)w.git).getLastTimeout(), is(0));
+        assertLogContains(" ignoring timeout " + fetchTimeout + " > " + JGitAPIImpl.MAX_TIMEOUT);
     }
 
     /**
