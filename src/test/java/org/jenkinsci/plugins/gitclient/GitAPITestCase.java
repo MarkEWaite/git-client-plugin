@@ -933,6 +933,11 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("unexpected final status " + finalStatus + " dir contents: " + dirContents, finalStatus.contains("working directory clean") || finalStatus.contains("working tree clean"));
     }
 
+    private void assertExceptionMessageContains(GitException ge, String expectedSubstring) {
+        String actual = ge.getMessage().toLowerCase();
+        assertTrue("Expected '" + expectedSubstring + "' exception message, but was: " + actual, actual.contains(expectedSubstring));
+    }
+
     public void test_fetch() throws Exception {
         /* Create a working repo containing a commit */
         w.init();
@@ -1057,7 +1062,7 @@ public abstract class GitAPITestCase extends TestCase {
                        ge.getMessage().contains("Could not merge") ||
                        ge.getMessage().contains("not something we can merge") ||
                        ge.getMessage().contains("does not point to a commit"));
-            assertTrue("Wrong message :" + ge.getMessage(), ge.getMessage().contains(bareCommit5.name()));
+            assertExceptionMessageContains(ge, bareCommit5.name());
         }
         /* Assert that expected change is in repo after merge.  With
          * git 1.7 and 1.8, it should be bareCommit4.  With git 1.9
@@ -1069,7 +1074,7 @@ public abstract class GitAPITestCase extends TestCase {
             newArea.git.fetch("invalid-remote-name");
             fail("Should have thrown an exception");
         } catch (GitException ge) {
-            assertTrue("Wrong message :" + ge.getMessage(), ge.getMessage().contains("invalid-remote-name"));
+            assertExceptionMessageContains(ge, "invalid-remote-name");
         }
     }
 
@@ -1875,7 +1880,7 @@ public abstract class GitAPITestCase extends TestCase {
             assertEquals(sha1.name(), remoteSha1);
         } catch (GitException e) {
             // expected for git cli < 1.9.0
-            assertTrue("Wrong exception message: " + e, e.getMessage().contains("push from shallow repository"));
+            assertExceptionMessageContains(e, "push from shallow repository");
             assertFalse("git >= 1.9.0 can't push from shallow repository", w.cgit().isAtLeastVersion(1, 9, 0, 0));
         }
     }
@@ -2363,7 +2368,7 @@ public abstract class GitAPITestCase extends TestCase {
         } catch (GitException ge) {
             assertTrue("GitException not on CliGit", w.igit() instanceof CliGitAPIImpl);
             assertTrue("Wrong message in " + ge.getMessage(), ge.getMessage().startsWith("Could not determine remote"));
-            assertTrue("Wrong remote in " + ge.getMessage(), ge.getMessage().contains("origin"));
+            assertExceptionMessageContains(ge, "origin");
         }
     }
 
@@ -3204,14 +3209,14 @@ public abstract class GitAPITestCase extends TestCase {
             assertTrue("Exception not thrown by CliGit", w.git instanceof CliGitAPIImpl);
         } catch (GitException moa) {
             assertFalse("Exception thrown by CliGit", w.git instanceof CliGitAPIImpl);
-            assertTrue("Exception message didn't mention " + badBase.toString(), moa.getMessage().contains(badSHA1));
+            assertExceptionMessageContains(moa, badSHA1);
         }
         try {
             assertNull("Base unexpected for bad SHA1", w.igit().mergeBase(badBase, branch1));
             assertTrue("Exception not thrown by CliGit", w.git instanceof CliGitAPIImpl);
         } catch (GitException moa) {
             assertFalse("Exception thrown by CliGit", w.git instanceof CliGitAPIImpl);
-            assertTrue("Exception message didn't mention " + badBase.toString(), moa.getMessage().contains(badSHA1));
+            assertExceptionMessageContains(moa, badSHA1);
         }
 
         w.igit().merge("branch1");
@@ -3552,7 +3557,7 @@ public abstract class GitAPITestCase extends TestCase {
         try {
             references = w.git.getRemoteReferences(remoteMirrorURL, "notexists-*", false, false);
         } catch (GitException ge) {
-            assertTrue("Wrong exception message: " + ge, ge.getMessage().contains("unexpected ls-remote output"));
+            assertExceptionMessageContains(ge, "unexpected ls-remote output");
         }
         assertTrue(references.isEmpty());
     }
@@ -4241,7 +4246,7 @@ public abstract class GitAPITestCase extends TestCase {
             assertFalse("null is a bare repository", w.igit().isBareRepository(null));
             fail("Did not throw expected exception");
         } catch (GitException ge) {
-            assertTrue("Wrong exception message: " + ge, ge.getMessage().contains("Not a git repository"));
+            assertExceptionMessageContains(ge, "not a git repository");
         }
     }
 
@@ -4252,7 +4257,7 @@ public abstract class GitAPITestCase extends TestCase {
             assertTrue("null is not a bare repository", w.igit().isBareRepository(null));
             fail("Did not throw expected exception");
         } catch (GitException ge) {
-            assertTrue("Wrong exception message: " + ge, ge.getMessage().contains("Not a git repository"));
+            assertExceptionMessageContains(ge, "not a git repository");
         }
     }
 
@@ -4316,7 +4321,7 @@ public abstract class GitAPITestCase extends TestCase {
                 fail("Did not throw expected exception");
             }
         } catch (GitException ge) {
-            assertTrue("Wrong exception message: " + ge, ge.getMessage().contains("Not a git repository"));
+            assertExceptionMessageContains(ge, "not a git repository");
         }
     }
 
@@ -4352,7 +4357,7 @@ public abstract class GitAPITestCase extends TestCase {
             assertFalse("CliGitAPIImpl did not throw expected exception", w.igit() instanceof CliGitAPIImpl);
         } catch (GitException ge) {
             /* Only enters this path for CliGit */
-            assertTrue("Wrong exception message: " + ge, ge.getMessage().contains("Not a git repository"));
+            assertExceptionMessageContains(ge, "not a git repository");
         }
     }
 
@@ -4367,7 +4372,7 @@ public abstract class GitAPITestCase extends TestCase {
             assertFalse("CliGitAPIImpl did not throw expected exception", w.igit() instanceof CliGitAPIImpl);
         } catch (GitException ge) {
             /* Only enters this path for CliGit */
-            assertTrue("Wrong exception message: " + ge, ge.getMessage().contains("Not a git repository"));
+            assertExceptionMessageContains(ge, "not a git repository");
         }
     }
 
@@ -4381,7 +4386,7 @@ public abstract class GitAPITestCase extends TestCase {
             assertFalse("CliGitAPIImpl did not throw expected exception", w.igit() instanceof CliGitAPIImpl);
         } catch (GitException ge) {
             /* Only enters this path for CliGit */
-            assertTrue("Wrong exception message: " + ge, ge.getMessage().contains("Not a git repository"));
+            assertExceptionMessageContains(ge, "not a git repository");
         }
     }
 
