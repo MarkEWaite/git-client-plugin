@@ -4610,9 +4610,33 @@ public abstract class GitAPITestCase extends TestCase {
         assertThat(writer.toString(),not(isEmptyString()));
     }
 
+    @NotImplementedInJGit
+    public void test_submodule_recursive_sync() throws Exception {
+        File tempRemoteDir = temporaryDirectoryAllocator.allocate();
+        extract(new ZipFile("src/test/resources/recursiveSubsRepo.zip"), tempRemoteDir);
+        File pathToTempRepo = new File(tempRemoteDir, "recursiveSubsRepo/repository");
+        w = clone(pathToTempRepo.getAbsolutePath());
+        w.igit().submoduleSync();
+        w.igit().submoduleUpdate(true);
+
+        assertTrue(w.file("i_am_repository").exists());
+
+        // by default we are on use_subsubmodule2 branch, so we should find both submodule/i_am_submodule and submodule/subsubmodule/i_am_subsubmodule2
+        assertTrue(w.file("submodule" + File.separator + "i_am_submodule").exists());
+        assertTrue(w.file("submodule" + File.separator + "subsubmodule" + File.separator + "i_am_subsubmodule2").exists());
+
+        // on use_subsubmodule1 branch, we should find both submodule/i_am_submodule and submodule/subsubmodule/i_am_subsubmodule1
+        w.git.checkout("use_subsubmodule1");
+        // first time we must update submodule url
+        w.igit().submoduleUpdate(false);
+        w.igit().submoduleSync();
+        w.igit().submoduleUpdate(true);
+        assertTrue(w.file("submodule" + File.separator + "i_am_submodule").exists());
+        assertTrue(w.file("submodule" + File.separator + "subsubmodule" + File.separator + "i_am_subsubmodule2").exists());
+    }
+
     /** inline ${@link hudson.Functions#isWindows()} to prevent a transient remote classloader issue */
     private boolean isWindows() {
         return File.pathSeparatorChar==';';
     }
-
 }
