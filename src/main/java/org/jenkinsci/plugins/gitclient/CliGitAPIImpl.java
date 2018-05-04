@@ -1675,12 +1675,18 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 listener.getLogger().println("using GIT_SSH to set credentials " + sshUser.getDescription());
 
                 key = createSshKeyFile(sshUser);
+                // Prefer url username if set, OpenSSH 7.7 argument precedence change
+                // See JENKINS-50573 for details
+                String userName = url.getUser();
+                if (userName == null) {
+                    userName = sshUser.getUsername();
+                }
                 passphrase = createPassphraseFile(sshUser);
                 if (launcher.isUnix()) {
-                    ssh =  createUnixGitSSH(key, sshUser.getUsername());
+                    ssh =  createUnixGitSSH(key, userName);
                     passCmd =  createUnixSshAskpass(sshUser, passphrase);
                 } else {
-                    ssh =  createWindowsGitSSH(key, sshUser.getUsername());
+                    ssh = createWindowsGitSSH(key, userName);
                     passCmd =  createWindowsSshAskpass(sshUser, passphrase);
                 }
 
