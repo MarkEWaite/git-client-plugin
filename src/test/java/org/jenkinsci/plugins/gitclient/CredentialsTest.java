@@ -358,17 +358,15 @@ public class CredentialsTest {
             subcmd.execute();
         }
         assertTrue("master: " + master + " not in repo", git.isCommitInRepo(master));
-        assertEquals("Master != HEAD", master, git.getRepository().getRef("master").getObjectId());
+        assertEquals("Master != HEAD", master, git.getRepository().findRef("master").getObjectId());
         assertEquals("Wrong branch", "master", git.getRepository().getBranch());
         assertTrue("No file " + fileToCheck + ", has " + listDir(repo), clonedFile.exists());
         /* prune opens a remote connection to list remote branches */
         git.prune(new RemoteConfig(git.getRepository().getConfig(), origin));
-        checkExpectedLogSubstring();
     }
 
     // @Test
     public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
-        addExpectedLogSubstring("Using reference repository: ");
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
         List<RefSpec> refSpecs = new ArrayList<>();
@@ -390,12 +388,11 @@ public class CredentialsTest {
             subcmd.execute();
         }
         assertTrue("master: " + master + " not in repo", git.isCommitInRepo(master));
-        assertEquals("Master != HEAD", master, git.getRepository().getRef("master").getObjectId());
+        assertEquals("Master != HEAD", master, git.getRepository().findRef("master").getObjectId());
         assertEquals("Wrong branch", "master", git.getRepository().getBranch());
         assertTrue("No file " + fileToCheck + " in " + repo + ", has " + listDir(repo), clonedFile.exists());
         /* prune opens a remote connection to list remote branches */
         git.prune(new RemoteConfig(git.getRepository().getConfig(), origin));
-        checkExpectedLogSubstring();
     }
 
     @Test
