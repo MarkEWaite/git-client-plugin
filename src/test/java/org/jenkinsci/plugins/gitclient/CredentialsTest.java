@@ -331,13 +331,13 @@ public class CredentialsTest {
         return TEST_ALL_CREDENTIALS ? repos : repos.subList(0, Math.min(repos.size(), 6));
     }
 
-    private void doFetch(String source) throws InterruptedException, URISyntaxException {
+    private void doFetch(String source) throws Exception {
         /* Save some bandwidth with shallow clone for CliGit, not yet available for JGit */
         URIish sourceURI = new URIish(source);
         List<RefSpec> refSpecs = new ArrayList<>();
         refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/origin/master"));
         FetchCommand cmd = git.fetch_().from(sourceURI, refSpecs).tags(false);
-        if (gitImpl.equals("git")) {
+        if (isShallowCloneSupported(gitImpl, git)) {
             // Reduce network transfer by using shallow clone
             // JGit does not support shallow clone
             cmd.shallow(true).depth(1);
@@ -374,7 +374,7 @@ public class CredentialsTest {
 
     @Test
     @Issue("JENKINS_50573")
-    public void testFetchWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
+    public void testFetchWithCredentials() throws Exception {
         assumeTrue(testPeriodNotExpired());
         File clonedFile = new File(repo, fileToCheck);
         git.init_().workspace(repo.getAbsolutePath()).execute();
