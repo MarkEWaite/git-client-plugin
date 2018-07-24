@@ -403,46 +403,12 @@ public class CredentialsTest {
     }
 
     // @Test
-    public void testFetchWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
-        File clonedFile = new File(repo, fileToCheck);
-        String origin = "origin";
-        List<RefSpec> refSpecs = new ArrayList<>();
-        refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/" + origin + "/master"));
-        git.init_().workspace(repo.getAbsolutePath()).execute();
-        assertFalse("file " + fileToCheck + " in " + repo + ", has " + listDir(repo), clonedFile.exists());
-        addCredential(username, password, privateKey);
-        /* Save some bandwidth with shallow clone for CliGit, not yet available for JGit */
-        FetchCommand cmd = git.fetch_().from(new URIish(gitRepoURL), refSpecs).tags(false);
-        if (isShallowCloneSupported(gitImpl, git)) {
-            // Reduce network transfer by using shallow clone
-            cmd.shallow(true).depth(1);
-        }
-        cmd.execute();
-        git.setRemoteUrl(origin, gitRepoURL);
-        ObjectId master = git.getHeadRev(gitRepoURL, "master");
-        log().println("Checking out " + master.getName() + " from " + gitRepoURL);
-        git.checkout().branch("master").ref(master.getName()).deleteBranchIfExist(true).execute();
-        if (submodules) {
-            log().println("Initializing submodules from " + gitRepoURL);
-            git.submoduleInit();
-            SubmoduleUpdateCommand subcmd = git.submoduleUpdate().parentCredentials(useParentCreds);
-            subcmd.execute();
-        }
-        assertTrue("master: " + master + " not in repo", git.isCommitInRepo(master));
-        assertEquals("Master != HEAD", master, git.getRepository().findRef("master").getObjectId());
-        assertEquals("Wrong branch", "master", git.getRepository().getBranch());
-        assertTrue("No file " + fileToCheck + ", has " + listDir(repo), clonedFile.exists());
-        /* prune opens a remote connection to list remote branches */
-        git.prune(new RemoteConfig(git.getRepository().getConfig(), origin));
-    }
-
-    // @Test
     public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
         List<RefSpec> refSpecs = new ArrayList<>();
         refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/" + origin + "/master"));
-        addCredential(username, password, privateKey);
+        addCredential();
         CloneCommand cmd = git.clone_().url(gitRepoURL).repositoryName(origin).refspecs(refSpecs).reference(CURR_DIR.getAbsolutePath());
         if (isShallowCloneSupported(gitImpl, git)) {
             // Reduce network transfer by using shallow clone
