@@ -403,10 +403,8 @@ public class CredentialsTest {
         }
         cmd.execute();
         ObjectId master = git.getHeadRev(gitRepoURL, "master");
-        log().println("Checking out " + master + " from " + gitRepoURL);
         git.checkout().branch("master").ref(origin + "/master").deleteBranchIfExist(true).execute();
         if (submodules) {
-            log().println("Initializing submodules from " + gitRepoURL);
             git.submoduleInit();
             SubmoduleUpdateCommand subcmd = git.submoduleUpdate();
             subcmd.execute();
