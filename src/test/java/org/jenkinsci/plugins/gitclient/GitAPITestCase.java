@@ -31,6 +31,7 @@ import java.io.OutputStream;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -556,12 +557,13 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         assertAlternatesFileNotFound();
         /* JGit does not support shallow clone */
-        assertEquals("isShallow?", w.igit() instanceof CliGitAPIImpl, w.cgit().isShallowRepository());
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file existence: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        boolean hasShallowCloneSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowCloneSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowCloneSupport, w.exists(shallow));
     }
 
-    public void test_clone_shallow_with_depth() throws IOException, InterruptedException
+    public void test_clone_shallow_with_depth() throws Exception
     {
         w.git.clone_().url(localMirror()).repositoryName("origin").shallow(true).depth(2).execute();
         w.git.checkout("origin/master", "master");
@@ -569,8 +571,10 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         assertAlternatesFileNotFound();
         /* JGit does not support shallow clone */
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file existence: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        boolean hasShallowCloneSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowCloneSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowCloneSupport, w.exists(shallow));
     }
 
     public void test_clone_shared() throws IOException, InterruptedException
@@ -848,7 +852,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     }
 
-    @Issue("JENKINS-20410")
+    @Issue({"JENKINS-20410", "JENKINS-27910", "JENKINS-22434"})
     public void test_clean() throws Exception {
         w.init();
         w.commitEmpty("init");
@@ -862,28 +866,27 @@ public abstract class GitAPITestCase extends TestCase {
          */
         String fileName = "\uD835\uDD65-\u5c4f\u5e55\u622a\u56fe-\u0041\u030a-\u00c5-\u212b-fileName.xml";
         w.touch(fileName, "content " + fileName);
-        try {
+        withSystemLocaleReporting(fileName, () -> {
             w.git.add(fileName);
-        } catch (GitException ge) {
-            // Exception should contain actual file name
-            // If mangled name is seen instead, throw a clear exception to indicate root cause
-            assertTrue("System locale does not support filename '" + fileName + "'", ge.getMessage().contains("?-????-A?-?-?-fileName.xml"));
-            throw ge; // Fail the test on exception even if the preceding assertion did not fail
-        }
-        w.git.commit(fileName);
+            w.git.commit(fileName);
+        });
 
         /* JENKINS-27910 reported that certain cyrillic file names
          * failed to delete if the encoding was not UTF-8.
          */
         String fileNameSwim = "\u00d0\u00bf\u00d0\u00bb\u00d0\u00b0\u00d0\u00b2\u00d0\u00b0\u00d0\u00bd\u00d0\u00b8\u00d0\u00b5-swim.png";
         w.touch(fileNameSwim, "content " + fileNameSwim);
-        w.git.add(fileNameSwim);
-        w.git.commit(fileNameSwim);
+        withSystemLocaleReporting(fileNameSwim, () -> {
+            w.git.add(fileNameSwim);
+            w.git.commit(fileNameSwim);
+        });
 
         String fileNameFace = "\u00d0\u00bb\u00d0\u00b8\u00d1\u2020\u00d0\u00be-face.png";
         w.touch(fileNameFace, "content " + fileNameFace);
-        w.git.add(fileNameFace);
-        w.git.commit(fileNameFace);
+        withSystemLocaleReporting(fileNameFace, () -> {
+            w.git.add(fileNameFace);
+            w.git.commit(fileNameFace);
+        });
 
         w.touch(".gitignore", ".test");
         w.git.add(".gitignore");
@@ -1402,9 +1405,11 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getRemoteBranches(), "origin/master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
-        /* JGit does not support shallow clone */
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        /* JGit does not support shallow fetch */
+        boolean hasShallowFetchSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowFetchSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowFetchSupport, w.exists(shallow));
     }
 
     public void test_fetch_shallow_depth() throws Exception {
@@ -1415,9 +1420,11 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getRemoteBranches(), "origin/master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
-        /* JGit does not support shallow clone */
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        /* JGit does not support shallow fetch */
+        boolean hasShallowFetchSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowFetchSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowFetchSupport, w.exists(shallow));
     }
 
     public void test_fetch_noTags() throws Exception {
@@ -2579,6 +2586,60 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.checkout().branch("tests/getSubmodules").ref("sub2_origin/tests/getSubmodules").deleteBranchIfExist(true).execute();
         w.git.submoduleInit();
         w.git.submoduleUpdate().execute();
+
+        assertTrue("modules/firewall does not exist", w.exists("modules/firewall"));
+        assertTrue("modules/ntp does not exist", w.exists("modules/ntp"));
+        // JGit submodule implementation doesn't handle renamed submodules
+        if (w.igit() instanceof CliGitAPIImpl) {
+            assertTrue("modules/sshkeys does not exist", w.exists("modules/sshkeys"));
+        }
+        assertFixSubmoduleUrlsThrows();
+
+        String shallow = Paths.get(".git", "modules", "module", "1", "shallow").toString();
+        assertFalse("shallow file existence: " + shallow, w.exists(shallow));
+    }
+
+    public void test_submodule_update_shallow() throws Exception {
+        WorkingArea remote = setupRepositoryWithSubmodule();
+        w.git.clone_().url("file://" + remote.file("dir-repository").getAbsolutePath()).repositoryName("origin").execute();
+        w.git.checkout().branch("master").ref("origin/master").execute();
+        w.git.submoduleInit();
+        w.git.submoduleUpdate().shallow(true).execute();
+
+        boolean hasShallowSubmoduleSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 8, 4, 0);
+
+        String shallow = Paths.get(".git", "modules", "submodule", "shallow").toString();
+        assertEquals("shallow file existence: " + shallow, hasShallowSubmoduleSupport, w.exists(shallow));
+
+        int localSubmoduleCommits = w.cgit().subGit("submodule").revList("master").size();
+        int remoteSubmoduleCommits = remote.cgit().subGit("dir-submodule").revList("master").size();
+        assertEquals("submodule commit count didn't match", hasShallowSubmoduleSupport ? 1 : remoteSubmoduleCommits, localSubmoduleCommits);
+    }
+
+    public void test_submodule_update_shallow_with_depth() throws Exception {
+        WorkingArea remote = setupRepositoryWithSubmodule();
+        w.git.clone_().url("file://" + remote.file("dir-repository").getAbsolutePath()).repositoryName("origin").execute();
+        w.git.checkout().branch("master").ref("origin/master").execute();
+        w.git.submoduleInit();
+        w.git.submoduleUpdate().shallow(true).depth(2).execute();
+
+        boolean hasShallowSubmoduleSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 8, 4, 0);
+
+        String shallow = Paths.get(".git", "modules", "submodule", "shallow").toString();
+        assertEquals("shallow file existence: " + shallow, hasShallowSubmoduleSupport, w.exists(shallow));
+
+        int localSubmoduleCommits = w.cgit().subGit("submodule").revList("master").size();
+        int remoteSubmoduleCommits = remote.cgit().subGit("dir-submodule").revList("master").size();
+        assertEquals("submodule commit count didn't match", hasShallowSubmoduleSupport ? 2 : remoteSubmoduleCommits, localSubmoduleCommits);
+    }
+
+    @NotImplementedInJGit
+    public void test_submodule_update_with_threads() throws Exception {
+        w.init();
+        w.git.clone_().url(localMirror()).repositoryName("sub2_origin").execute();
+        w.git.checkout().branch("tests/getSubmodules").ref("sub2_origin/tests/getSubmodules").deleteBranchIfExist(true).execute();
+        w.git.submoduleInit();
+        w.git.submoduleUpdate().threads(3).execute();
 
         assertTrue("modules/firewall does not exist", w.exists("modules/firewall"));
         assertTrue("modules/ntp does not exist", w.exists("modules/ntp"));
@@ -4624,4 +4685,49 @@ public abstract class GitAPITestCase extends TestCase {
         return File.pathSeparatorChar==';';
     }
 
+    private void withSystemLocaleReporting(String fileName, TestedCode code) throws Exception {
+        try {
+            code.run();
+        } catch (GitException ge) {
+            // Exception message should contain the actual file name.
+            // It may just contain ? for characters that are not encoded correctly due to the system locale.
+            // If such a mangled file name is seen instead, throw a clear exception to indicate the root cause.
+            assertTrue("System locale does not support filename '" + fileName + "'", ge.getMessage().contains("?"));
+            // Rethrow exception for all other issues.
+            throw ge;
+        }
+    }
+
+    @FunctionalInterface
+    interface TestedCode {
+        void run() throws Exception;
+    }
+
+    private WorkingArea setupRepositoryWithSubmodule() throws Exception {
+        WorkingArea workingArea = new WorkingArea();
+
+        File repositoryDir = workingArea.file("dir-repository");
+        File submoduleDir = workingArea.file("dir-submodule");
+
+        assertTrue("did not create dir " + repositoryDir.getName(), repositoryDir.mkdir());
+        assertTrue("did not create dir " + submoduleDir.getName(), submoduleDir.mkdir());
+
+        WorkingArea submoduleWorkingArea = new WorkingArea(submoduleDir).init();
+
+        for (int commit = 1; commit <= 5; commit++) {
+            submoduleWorkingArea.touch("file", String.format("submodule content-%d", commit));
+            submoduleWorkingArea.cgit().add("file");
+            submoduleWorkingArea.cgit().commit(String.format("submodule commit-%d", commit));
+        }
+
+        WorkingArea repositoryWorkingArea = new WorkingArea(repositoryDir).init();
+
+        repositoryWorkingArea.commitEmpty("init");
+
+        repositoryWorkingArea.cgit().add(".");
+        repositoryWorkingArea.cgit().addSubmodule("file://" + submoduleDir.getAbsolutePath(), "submodule");
+        repositoryWorkingArea.cgit().commit("submodule");
+
+        return workingArea;
+    }
 }
