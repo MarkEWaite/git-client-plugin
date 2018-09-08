@@ -1721,11 +1721,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
         File key = null;
         File ssh = null;
-        File passCmd = null;
-        File passphrase = null;
+        File askpass = null;
         File usernameFile = null;
         File passwordFile = null;
-        File store = null;
+        File passphrase = null;
         EnvVars env = environment;
         if (!PROMPT_FOR_AUTHENTICATION && isAtLeastVersion(2, 3, 0, 0)) {
             env = new EnvVars(env);
@@ -1749,16 +1748,16 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 passphrase = createPassphraseFile(sshUser);
                 if (launcher.isUnix()) {
                     ssh =  createUnixGitSSH(key, userName);
-                    passCmd =  createUnixSshAskpass(sshUser, passphrase);
+                    askpass =  createUnixSshAskpass(sshUser, passphrase);
                 } else {
                     ssh = createWindowsGitSSH(key, userName);
-                    passCmd =  createWindowsSshAskpass(sshUser, passphrase);
+                    askpass =  createWindowsSshAskpass(sshUser, passphrase);
                 }
 
                 env = new EnvVars(env);
                 env.put("GIT_SSH", ssh.getAbsolutePath());
                 env.put("GIT_SSH_VARIANT", "ssh");
-                env.put("SSH_ASKPASS", passCmd.getAbsolutePath());
+                env.put("SSH_ASKPASS", askpass.getAbsolutePath());
 
                 // supply a dummy value for DISPLAY if not already present
                 // or else ssh will not invoke SSH_ASKPASS
@@ -1773,14 +1772,14 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 usernameFile = createUsernameFile(userPass);
                 passwordFile = createPasswordFile(userPass);
                 if (launcher.isUnix()) {
-                    passCmd = createUnixStandardAskpass(userPass, usernameFile, passwordFile);
+                    askpass = createUnixStandardAskpass(userPass, usernameFile, passwordFile);
                 } else {
-                    passCmd = createWindowsStandardAskpass(userPass, usernameFile, passwordFile);
+                    askpass = createWindowsStandardAskpass(userPass, usernameFile, passwordFile);
                 }
 
                 env = new EnvVars(env);
-                env.put("GIT_ASKPASS", passCmd.getAbsolutePath());
-                env.put("SSH_ASKPASS", passCmd.getAbsolutePath());
+                env.put("GIT_ASKPASS", askpass.getAbsolutePath());
+                env.put("SSH_ASKPASS", askpass.getAbsolutePath());
             }
 
             if ("http".equalsIgnoreCase(url.getScheme()) || "https".equalsIgnoreCase(url.getScheme())) {
@@ -1817,12 +1816,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         } catch (IOException e) {
             throw new GitException("Failed to setup credentials", e);
         } finally {
-            deleteTempFile(passCmd);
+            deleteTempFile(key);
+            deleteTempFile(ssh);
+            deleteTempFile(askpass);
             deleteTempFile(passphrase);
             deleteTempFile(usernameFile);
             deleteTempFile(passwordFile);
-            deleteTempFile(key);
-            deleteTempFile(ssh);
         }
     }
 
