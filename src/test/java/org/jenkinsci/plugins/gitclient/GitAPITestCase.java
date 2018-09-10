@@ -1172,8 +1172,8 @@ public abstract class GitAPITestCase extends TestCase {
             /* JGit does not throw exception updating existing tag - ugh */
             /* CliGit before 1.8 does not throw exception updating existing tag - ugh */
             if (w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 8, 0, 0)) {
-                fail("Modern CLI git should throw exception pushing a change to existing tag");
-            }
+	        fail("Modern CLI git should throw exception pushing a change to existing tag");
+	    }
         } catch (GitException ge) {
             assertThat(ge.getMessage(), containsString("already exists"));
         }
@@ -1182,8 +1182,8 @@ public abstract class GitAPITestCase extends TestCase {
             /* JGit does not throw exception updating existing tag - ugh */
             /* CliGit before 1.8 does not throw exception updating existing tag - ugh */
             if (w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 8, 0, 0)) {
-                fail("Modern CLI git should throw exception pushing a change to existing tag");
-            }
+	        fail("Modern CLI git should throw exception pushing a change to existing tag");
+	    }
         } catch (GitException ge) {
             assertThat(ge.getMessage(), containsString("already exists"));
         }
