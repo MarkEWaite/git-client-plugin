@@ -552,8 +552,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return new org.jenkinsci.plugins.gitclient.FetchCommand() {
             public URIish url;
             public List<RefSpec> refspecs;
-            // JGit 3.3.0 thru 3.6.0 prune more branches than expected
-            // Refer to GitAPITestCase.test_fetch_with_prune()
             private boolean shouldPrune = false;
             public boolean tags = true;
 
@@ -612,31 +610,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                             if (rs != null)
                                 allRefSpecs.add(rs);
 
-                    if (shouldPrune) {
-                        // since prune is broken in JGit, we go the trivial way:
-                        // delete all refs matching the right side of the refspecs
-                        // then fetch and let git recreate them.
-                        List<Ref> refs = git.branchList().setListMode(ListBranchCommand.ListMode.REMOTE).call();
-
-                        List<String> toDelete = new ArrayList<>(refs.size());
-
-                        for (ListIterator<Ref> it = refs.listIterator(); it.hasNext(); ) {
-                            Ref branchRef = it.next();
-                            if (!branchRef.isSymbolic()) { // Don't delete HEAD and other symbolic refs
-                                for (RefSpec rs : allRefSpecs) {
-                                    if (rs.matchDestination(branchRef)) {
-                                        toDelete.add(branchRef.getName());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        if (!toDelete.isEmpty()) {
-                            // we need force = true because usually not all remote branches will be merged into the current branch.
-                            git.branchDelete().setForce(true).setBranchNames(toDelete.toArray(new String[toDelete.size()])).call();
-                        }
-                    }
-
                     FetchCommand fetch = git.fetch();
                     fetch.setTagOpt(tags ? TagOpt.FETCH_TAGS : TagOpt.NO_TAGS);
                     /* JGit 4.5 required a work around that the tags refspec had to be passed in addition to setting
@@ -651,7 +624,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     fetch.setCredentialsProvider(getProvider());
 
                     fetch.setRefSpecs(allRefSpecs);
-                    // fetch.setRemoveDeletedRefs(shouldPrune);
+                    fetch.setRemoveDeletedRefs(shouldPrune);
 
                     fetch.call();
                 } catch (GitAPIException e) {
@@ -2252,7 +2225,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /**
-     * submoduleUpdate.
+     * Update submodules.
      *
      * @return a {@link org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand} object.
      */
@@ -2290,6 +2263,33 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             @Override
             public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand timeout(Integer timeout) {
             	// noop in jgit
+                return this;
+            }
+
+            @Override
+            public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand shallow(boolean shallow) {
+                if (shallow) {
+                    listener.getLogger().println("[WARNING] JGit doesn't support shallow clone. This flag is ignored");
+                }
+                return this;
+            }
+
+            @Override
+            public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand depth(Integer depth) {
+                listener.getLogger().println("[WARNING] JGit doesn't support shallow clone and therefore depth is meaningless. This flag is ignored");
+                return this;
+            }
+
+            @Override
+            public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand threads(Integer threads) {
+                // TODO: I have no idea if JGit can update submodules in parallel
+                // It might work, or it might blow up horribly. This probably depends on
+                // whether JGit relies on any global/shared state. Since I have no
+                // experience with JGit, I'm leaving this unimplemented for the time
+                // being. But if some brave soul wants to test this, feel free to provide
+                // an implementation similar to the one in the CliGitAPIImpl class using
+                // an ExecutorService.
+                listener.getLogger().println("[WARNING] JGit doesn't support updating submodules in parallel. This flag is ignored");
                 return this;
             }
 

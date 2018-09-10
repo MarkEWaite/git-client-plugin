@@ -31,6 +31,7 @@ import java.io.OutputStream;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,6 +49,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import static java.util.stream.Collectors.toList;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -464,18 +466,61 @@ public abstract class GitAPITestCase extends TestCase {
         assertTrue("remote URL has not been updated", remotes.contains(localMirror()));
     }
 
+    private Collection<String> getBranchNames(Collection<Branch> branches) {
+        return branches.stream().map(Branch::getName).collect(toList());
+    }
+
     private void assertBranchesExist(Set<Branch> branches, String ... names) throws InterruptedException {
-        Collection<String> branchNames = Collections2.transform(branches, GitObject::getName);
+        Collection<String> branchNames = getBranchNames(branches);
         for (String name : names) {
-            assertTrue(name + " branch not found in " + branchNames, branchNames.contains(name));
+            assertThat(branchNames, hasItem(name));
         }
     }
 
     private void assertBranchesNotExist(Set<Branch> branches, String ... names) throws InterruptedException {
-        Collection<String> branchNames = Collections2.transform(branches, GitObject::getName);
+        Collection<String> branchNames = getBranchNames(branches);
         for (String name : names) {
-            assertFalse(name + " branch found in " + branchNames, branchNames.contains(name));
+            assertThat(branchNames, not(hasItem(name)));
         }
+    }
+
+    @NotImplementedInJGit
+    public void test_clone_default_timeout_logging() throws Exception {
+        w.git.clone_().url(localMirror()).repositoryName("origin").execute();
+
+        cloneTimeout = CliGitAPIImpl.TIMEOUT;
+        assertCloneTimeout();
+    }
+
+    @NotImplementedInJGit
+    public void test_fetch_default_timeout_logging() throws Exception {
+        w.git.clone_().url(localMirror()).repositoryName("origin").execute();
+
+        w.git.fetch_().from(new URIish("origin"), null).execute();
+
+        fetchTimeout = CliGitAPIImpl.TIMEOUT;
+        assertFetchTimeout();
+    }
+
+    @NotImplementedInJGit
+    public void test_checkout_default_timeout_logging() throws Exception {
+        w.git.clone_().url(localMirror()).repositoryName("origin").execute();
+
+        w.git.checkout().ref("origin/master").execute();
+
+        checkoutTimeout = CliGitAPIImpl.TIMEOUT;
+        assertCheckoutTimeout();
+    }
+
+    @NotImplementedInJGit
+    public void test_submodule_update_default_timeout_logging() throws Exception {
+        w.git.clone_().url(localMirror()).repositoryName("origin").execute();
+        w.git.checkout().ref("origin/tests/getSubmodules").execute();
+
+        w.git.submoduleUpdate().execute();
+
+        submoduleUpdateTimeout = CliGitAPIImpl.TIMEOUT;
+        assertSubmoduleUpdateTimeout();
     }
 
     public void test_setAuthor() throws Exception {
@@ -557,12 +602,13 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         assertAlternatesFileNotFound();
         /* JGit does not support shallow clone */
-        assertEquals("isShallow?", w.igit() instanceof CliGitAPIImpl, w.cgit().isShallowRepository());
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file existence: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        boolean hasShallowCloneSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowCloneSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowCloneSupport, w.exists(shallow));
     }
 
-    public void test_clone_shallow_with_depth() throws IOException, InterruptedException
+    public void test_clone_shallow_with_depth() throws Exception
     {
         w.git.clone_().url(localMirror()).repositoryName("origin").shallow(true).depth(2).execute();
         w.git.checkout("origin/master", "master");
@@ -570,8 +616,10 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         assertAlternatesFileNotFound();
         /* JGit does not support shallow clone */
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file existence: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        boolean hasShallowCloneSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowCloneSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowCloneSupport, w.exists(shallow));
     }
 
     public void test_clone_shared() throws IOException, InterruptedException
@@ -849,7 +897,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     }
 
-    @Issue("JENKINS-20410")
+    @Issue({"JENKINS-20410", "JENKINS-27910", "JENKINS-22434"})
     public void test_clean() throws Exception {
         w.init();
         w.commitEmpty("init");
@@ -863,28 +911,27 @@ public abstract class GitAPITestCase extends TestCase {
          */
         String fileName = "\uD835\uDD65-\u5c4f\u5e55\u622a\u56fe-\u0041\u030a-\u00c5-\u212b-fileName.xml";
         w.touch(fileName, "content " + fileName);
-        try {
+        withSystemLocaleReporting(fileName, () -> {
             w.git.add(fileName);
-        } catch (GitException ge) {
-            // Exception should contain actual file name
-            // If mangled name is seen instead, throw a clear exception to indicate root cause
-            assertTrue("System locale does not support filename '" + fileName + "'", ge.getMessage().contains("?-????-A?-?-?-fileName.xml"));
-            throw ge; // Fail the test on exception even if the preceding assertion did not fail
-        }
-        w.git.commit(fileName);
+            w.git.commit(fileName);
+        });
 
         /* JENKINS-27910 reported that certain cyrillic file names
          * failed to delete if the encoding was not UTF-8.
          */
         String fileNameSwim = "\u00d0\u00bf\u00d0\u00bb\u00d0\u00b0\u00d0\u00b2\u00d0\u00b0\u00d0\u00bd\u00d0\u00b8\u00d0\u00b5-swim.png";
         w.touch(fileNameSwim, "content " + fileNameSwim);
-        w.git.add(fileNameSwim);
-        w.git.commit(fileNameSwim);
+        withSystemLocaleReporting(fileNameSwim, () -> {
+            w.git.add(fileNameSwim);
+            w.git.commit(fileNameSwim);
+        });
 
         String fileNameFace = "\u00d0\u00bb\u00d0\u00b8\u00d1\u2020\u00d0\u00be-face.png";
         w.touch(fileNameFace, "content " + fileNameFace);
-        w.git.add(fileNameFace);
-        w.git.commit(fileNameFace);
+        withSystemLocaleReporting(fileNameFace, () -> {
+            w.git.add(fileNameFace);
+            w.git.commit(fileNameFace);
+        });
 
         w.touch(".gitignore", ".test");
         w.git.add(".gitignore");
@@ -954,7 +1001,7 @@ public abstract class GitAPITestCase extends TestCase {
         bare.init(true);
         w.git.setRemoteUrl("origin", bare.repoPath());
         Set<Branch> remoteBranchesEmpty = w.git.getRemoteBranches();
-        assertEquals("Unexpected branch count", 0, remoteBranchesEmpty.size());
+        assertThat(remoteBranchesEmpty, is(empty()));
         w.git.push("origin", "master");
         ObjectId bareCommit1 = bare.git.getHeadRev(bare.repoPath(), "master");
         assertEquals("bare != working", commit1, bareCommit1);
@@ -965,7 +1012,7 @@ public abstract class GitAPITestCase extends TestCase {
         ObjectId newAreaHead = newArea.head();
         assertEquals("bare != newArea", bareCommit1, newAreaHead);
         Set<Branch> remoteBranches1 = newArea.git.getRemoteBranches();
-        assertEquals("Unexpected branch count in " + remoteBranches1, 2, remoteBranches1.size());
+        assertThat(getBranchNames(remoteBranches1), hasItems("origin/master"));
         assertEquals(bareCommit1, newArea.git.getHeadRev(newArea.repoPath(), "refs/heads/master"));
 
         /* Commit a new change to the original repo */
@@ -1095,7 +1142,7 @@ public abstract class GitAPITestCase extends TestCase {
         bare.init(true);
         w.git.setRemoteUrl("origin", bare.repoPath());
         Set<Branch> remoteBranchesEmpty = w.git.getRemoteBranches();
-        assertEquals("Unexpected branch count", 0, remoteBranchesEmpty.size());
+        assertThat(remoteBranchesEmpty, is(empty()));
         w.git.push("origin", "master");
         ObjectId bareCommit1 = bare.git.getHeadRev(bare.repoPath(), "master");
         assertEquals("bare != working", commit1, bareCommit1);
@@ -1171,8 +1218,8 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.add("file1");
         w.git.commit("commit1");
         ObjectId commit1 = w.head();
-        assertEquals("Wrong branch count", 1, w.git.getBranches().size());
-        assertTrue("Remote branches should not exist", w.git.getRemoteBranches().isEmpty());
+        assertThat(getBranchNames(w.git.getBranches()), contains("master"));
+        assertThat(w.git.getRemoteBranches(), is(empty()));
 
         /* Prune when a remote is not yet defined */
         try {
@@ -1191,8 +1238,8 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.push("origin", "master");
         ObjectId bareCommit1 = bare.git.getHeadRev(bare.repoPath(), "master");
         assertEquals("bare != working", commit1, bareCommit1);
-        assertEquals("Wrong branch count", 1, w.git.getBranches().size());
-        assertTrue("Remote branches should not exist", w.git.getRemoteBranches().isEmpty());
+        assertThat(getBranchNames(w.git.getBranches()), contains("master"));
+        assertThat(w.git.getRemoteBranches(), is(empty()));
 
         /* Create a branch in working repo named "parent" */
         w.git.branch("parent");
@@ -1201,23 +1248,22 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.add("file2");
         w.git.commit("commit2");
         ObjectId commit2 = w.head();
-        assertEquals("Wrong branch count", 2, w.git.getBranches().size());
-        assertTrue("Remote branches should not exist", w.git.getRemoteBranches().isEmpty());
+        assertThat(getBranchNames(w.git.getBranches()), containsInAnyOrder("master", "parent"));
+        assertThat(w.git.getRemoteBranches(), is(empty()));
 
         /* Push branch named "parent" to bare repo */
         w.git.push("origin", "parent");
         ObjectId bareCommit2 = bare.git.getHeadRev(bare.repoPath(), "parent");
         assertEquals("working parent != bare parent", commit2, bareCommit2);
-        assertEquals("Wrong branch count", 2, w.git.getBranches().size());
-        assertTrue("Remote branches should not exist", w.git.getRemoteBranches().isEmpty());
+        assertThat(getBranchNames(w.git.getBranches()), containsInAnyOrder("master", "parent"));
+        assertThat(w.git.getRemoteBranches(), is(empty()));
 
         /* Clone new working repo from bare repo */
         WorkingArea newArea = clone(bare.repoPath());
         ObjectId newAreaHead = newArea.head();
         assertEquals("bare != newArea", bareCommit1, newAreaHead);
         Set<Branch> remoteBranches = newArea.git.getRemoteBranches();
-        assertBranchesExist(remoteBranches, "origin/master", "origin/parent", "origin/HEAD");
-        assertEquals("Wrong count in " + remoteBranches, 3, remoteBranches.size());
+        assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/parent", "origin/HEAD"));
 
         /* Checkout parent in new working repo */
         newArea.git.checkout("origin/parent", "parent");
@@ -1227,7 +1273,7 @@ public abstract class GitAPITestCase extends TestCase {
         /* Delete parent branch from w */
         w.git.checkout("master");
         w.cmd("git branch -D parent");
-        assertEquals("Wrong branch count", 1, w.git.getBranches().size());
+        assertThat(getBranchNames(w.git.getBranches()), contains("master"));
 
         /* Delete parent branch on bare repo*/
         bare.cmd("git branch -D parent");
@@ -1246,7 +1292,7 @@ public abstract class GitAPITestCase extends TestCase {
         ObjectId bareCommit3 = bare.git.getHeadRev(bare.repoPath(), "parent/a");
         assertEquals("parent/a != bare", commit3, bareCommit3);
         remoteBranches = bare.git.getRemoteBranches();
-        assertEquals("Wrong count in " + remoteBranches, 0, remoteBranches.size());
+        assertThat(remoteBranches, is(empty()));
 
         RefSpec defaultRefSpec = new RefSpec("+refs/heads/*:refs/remotes/origin/*");
         List<RefSpec> refSpecs = new ArrayList<>();
@@ -1278,13 +1324,13 @@ public abstract class GitAPITestCase extends TestCase {
     }
 
     /**
-     * JGit 3.3.0 thru 3.6.0 "prune during fetch" prunes more remote
-     * branches than command line git prunes during fetch.  This test
-     * should be used to evaluate future versions of JGit to see if
-     * pruning behavior more closely emulates command line git.
-     *
-     * This has been fixed using a workaround.
+     * JGit 3.3.0 thru 4.5.4 "prune during fetch" prunes more remote
+     * branches than command line git prunes during fetch.  JGit 5.0.2
+     * fixes the problem.
+     * Refer to https://bugs.eclipse.org/bugs/show_bug.cgi?id=533549
+     * Refer to https://bugs.eclipse.org/bugs/show_bug.cgi?id=533806
      */
+    @Issue("JENKINS-26197")
     public void test_fetch_with_prune() throws Exception {
         WorkingArea bare = new WorkingArea();
         bare.init(true);
@@ -1293,12 +1339,11 @@ public abstract class GitAPITestCase extends TestCase {
         /* master -> branch1 */
         /*        -> branch2 */
         w.init();
+        w.git.setRemoteUrl("origin", bare.repoPath());
         w.touch("file-master", "file master content " + java.util.UUID.randomUUID().toString());
         w.git.add("file-master");
         w.git.commit("master-commit");
-        ObjectId master = w.head();
         assertEquals("Wrong branch count", 1, w.git.getBranches().size());
-        w.git.setRemoteUrl("origin", bare.repoPath());
         w.git.push("origin", "master"); /* master branch is now on bare repo */
 
         w.git.checkout("master");
@@ -1306,8 +1351,7 @@ public abstract class GitAPITestCase extends TestCase {
         w.touch("file-branch1", "file branch1 content " + java.util.UUID.randomUUID().toString());
         w.git.add("file-branch1");
         w.git.commit("branch1-commit");
-        ObjectId branch1 = w.head();
-        assertEquals("Wrong branch count", 2, w.git.getBranches().size());
+        assertThat(getBranchNames(w.git.getBranches()), containsInAnyOrder("master", "branch1"));
         w.git.push("origin", "branch1"); /* branch1 is now on bare repo */
 
         w.git.checkout("master");
@@ -1315,49 +1359,40 @@ public abstract class GitAPITestCase extends TestCase {
         w.touch("file-branch2", "file branch2 content " + java.util.UUID.randomUUID().toString());
         w.git.add("file-branch2");
         w.git.commit("branch2-commit");
-        ObjectId branch2 = w.head();
-        assertEquals("Wrong branch count", 3, w.git.getBranches().size());
-        assertTrue("Remote branches should not exist", w.git.getRemoteBranches().isEmpty());
+        assertThat(getBranchNames(w.git.getBranches()), containsInAnyOrder("master", "branch1", "branch2"));
+        assertThat(w.git.getRemoteBranches(), is(empty()));
         w.git.push("origin", "branch2"); /* branch2 is now on bare repo */
 
         /* Clone new working repo from bare repo */
         WorkingArea newArea = clone(bare.repoPath());
         ObjectId newAreaHead = newArea.head();
         Set<Branch> remoteBranches = newArea.git.getRemoteBranches();
-        assertBranchesExist(remoteBranches, "origin/master", "origin/branch1", "origin/branch2", "origin/HEAD");
-        assertEquals("Wrong count in " + remoteBranches, 4, remoteBranches.size());
+        assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/branch1", "origin/branch2", "origin/HEAD"));
 
         /* Remove branch1 from bare repo using original repo */
         w.cmd("git push " + bare.repoPath() + " :branch1");
 
-        RefSpec defaultRefSpec = new RefSpec("+refs/heads/*:refs/remotes/origin/*");
-        List<RefSpec> refSpecs = new ArrayList<>();
-        refSpecs.add(defaultRefSpec);
+        List<RefSpec> refSpecs = Arrays.asList(new RefSpec("+refs/heads/*:refs/remotes/origin/*"));
 
         /* Fetch without prune should leave branch1 in newArea */
         newArea.cmd("git config fetch.prune false");
         newArea.git.fetch_().from(new URIish(bare.repo.toString()), refSpecs).execute();
         remoteBranches = newArea.git.getRemoteBranches();
-        assertBranchesExist(remoteBranches, "origin/master", "origin/branch1", "origin/branch2", "origin/HEAD");
-        assertEquals("Wrong count in " + remoteBranches, 4, remoteBranches.size());
+        assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/branch1", "origin/branch2", "origin/HEAD"));
 
         /* Fetch with prune should remove branch1 from newArea */
         newArea.git.fetch_().from(new URIish(bare.repo.toString()), refSpecs).prune().execute();
         remoteBranches = newArea.git.getRemoteBranches();
-        assertBranchesExist(remoteBranches, "origin/master", "origin/branch2", "origin/HEAD");
+        assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/branch2", "origin/HEAD"));
 
-        /* Git 1.7.1 on Red Hat 6 does not prune branch1, don't fail the test
+        /* Git older than 1.7.9 (like 1.7.1 on Red Hat 6) does not prune branch1, don't fail the test
          * on that old git version.
          */
-        int expectedBranchCount = 3;
         if (newArea.git instanceof CliGitAPIImpl && !w.cgit().isAtLeastVersion(1, 7, 9, 0)) {
-            expectedBranchCount = 4;
-            assertBranchesExist(remoteBranches, "origin/master", "origin/branch1", "origin/branch2", "origin/HEAD");
+            assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/branch1", "origin/branch2", "origin/HEAD"));
         } else {
-            assertBranchesExist(remoteBranches, "origin/master", "origin/branch2", "origin/HEAD");
-            assertBranchesNotExist(remoteBranches, "origin/branch1");
+            assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/branch2", "origin/HEAD"));
         }
-        assertEquals("Wrong remote branch count", expectedBranchCount, remoteBranches.size());
     }
 
     public void test_fetch_from_url() throws Exception {
@@ -1403,9 +1438,11 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getRemoteBranches(), "origin/master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
-        /* JGit does not support shallow clone */
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        /* JGit does not support shallow fetch */
+        boolean hasShallowFetchSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowFetchSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowFetchSupport, w.exists(shallow));
     }
 
     public void test_fetch_shallow_depth() throws Exception {
@@ -1416,9 +1453,11 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getRemoteBranches(), "origin/master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertFalse("Alternates file found: " + alternates, w.exists(alternates));
-        /* JGit does not support shallow clone */
-        final String shallow = ".git" + File.separator + "shallow";
-        assertEquals("Shallow file: " + shallow, w.igit() instanceof CliGitAPIImpl, w.exists(shallow));
+        /* JGit does not support shallow fetch */
+        boolean hasShallowFetchSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 5, 0, 0);
+        assertEquals("isShallow?", hasShallowFetchSupport, w.cgit().isShallowRepository());
+        String shallow = ".git" + File.separator + "shallow";
+        assertEquals("shallow file existence: " + shallow, hasShallowFetchSupport, w.exists(shallow));
     }
 
     public void test_fetch_noTags() throws Exception {
@@ -2588,6 +2627,60 @@ public abstract class GitAPITestCase extends TestCase {
             assertTrue("modules/sshkeys does not exist", w.exists("modules/sshkeys"));
         }
         assertFixSubmoduleUrlsThrows();
+
+        String shallow = Paths.get(".git", "modules", "module", "1", "shallow").toString();
+        assertFalse("shallow file existence: " + shallow, w.exists(shallow));
+    }
+
+    public void test_submodule_update_shallow() throws Exception {
+        WorkingArea remote = setupRepositoryWithSubmodule();
+        w.git.clone_().url("file://" + remote.file("dir-repository").getAbsolutePath()).repositoryName("origin").execute();
+        w.git.checkout().branch("master").ref("origin/master").execute();
+        w.git.submoduleInit();
+        w.git.submoduleUpdate().shallow(true).execute();
+
+        boolean hasShallowSubmoduleSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 8, 4, 0);
+
+        String shallow = Paths.get(".git", "modules", "submodule", "shallow").toString();
+        assertEquals("shallow file existence: " + shallow, hasShallowSubmoduleSupport, w.exists(shallow));
+
+        int localSubmoduleCommits = w.cgit().subGit("submodule").revList("master").size();
+        int remoteSubmoduleCommits = remote.cgit().subGit("dir-submodule").revList("master").size();
+        assertEquals("submodule commit count didn't match", hasShallowSubmoduleSupport ? 1 : remoteSubmoduleCommits, localSubmoduleCommits);
+    }
+
+    public void test_submodule_update_shallow_with_depth() throws Exception {
+        WorkingArea remote = setupRepositoryWithSubmodule();
+        w.git.clone_().url("file://" + remote.file("dir-repository").getAbsolutePath()).repositoryName("origin").execute();
+        w.git.checkout().branch("master").ref("origin/master").execute();
+        w.git.submoduleInit();
+        w.git.submoduleUpdate().shallow(true).depth(2).execute();
+
+        boolean hasShallowSubmoduleSupport = w.git instanceof CliGitAPIImpl && w.cgit().isAtLeastVersion(1, 8, 4, 0);
+
+        String shallow = Paths.get(".git", "modules", "submodule", "shallow").toString();
+        assertEquals("shallow file existence: " + shallow, hasShallowSubmoduleSupport, w.exists(shallow));
+
+        int localSubmoduleCommits = w.cgit().subGit("submodule").revList("master").size();
+        int remoteSubmoduleCommits = remote.cgit().subGit("dir-submodule").revList("master").size();
+        assertEquals("submodule commit count didn't match", hasShallowSubmoduleSupport ? 2 : remoteSubmoduleCommits, localSubmoduleCommits);
+    }
+
+    @NotImplementedInJGit
+    public void test_submodule_update_with_threads() throws Exception {
+        w.init();
+        w.git.clone_().url(localMirror()).repositoryName("sub2_origin").execute();
+        w.git.checkout().branch("tests/getSubmodules").ref("sub2_origin/tests/getSubmodules").deleteBranchIfExist(true).execute();
+        w.git.submoduleInit();
+        w.git.submoduleUpdate().threads(3).execute();
+
+        assertTrue("modules/firewall does not exist", w.exists("modules/firewall"));
+        assertTrue("modules/ntp does not exist", w.exists("modules/ntp"));
+        // JGit submodule implementation doesn't handle renamed submodules
+        if (w.igit() instanceof CliGitAPIImpl) {
+            assertTrue("modules/sshkeys does not exist", w.exists("modules/sshkeys"));
+        }
+        assertFixSubmoduleUrlsThrows();
     }
 
     @NotImplementedInJGit
@@ -2735,20 +2828,14 @@ public abstract class GitAPITestCase extends TestCase {
         assertFixSubmoduleUrlsThrows();
     }
 
-    private boolean isJava6() {
-        if (System.getProperty("java.version").startsWith("1.6")) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * core.symlinks is set to false by msysgit on Windows and by JGit
-     * 3.3.0 on all platforms.  It is not set on Linux.  Refer to
-     * JENKINS-21168, JENKINS-22376, and JENKINS-22391 for details.
+    /*
+     * core.symlinks is set to false by git for WIndows.
+     * It is not set on Linux.
+     * See also JENKINS-22376 and JENKINS-22391
      */
+    @Issue("JENKINS-21168")
     private void checkSymlinkSetting(WorkingArea area) throws IOException {
-        String expected = SystemUtils.IS_OS_WINDOWS || (area.git instanceof JGitAPIImpl && isJava6()) ? "false" : "";
+        String expected = SystemUtils.IS_OS_WINDOWS ? "false" : "";
         String symlinkValue = null;
         try {
             symlinkValue = w.cmd(true, "git config core.symlinks").trim();
@@ -4873,4 +4960,49 @@ public abstract class GitAPITestCase extends TestCase {
         return File.pathSeparatorChar==';';
     }
 
+    private void withSystemLocaleReporting(String fileName, TestedCode code) throws Exception {
+        try {
+            code.run();
+        } catch (GitException ge) {
+            // Exception message should contain the actual file name.
+            // It may just contain ? for characters that are not encoded correctly due to the system locale.
+            // If such a mangled file name is seen instead, throw a clear exception to indicate the root cause.
+            assertTrue("System locale does not support filename '" + fileName + "'", ge.getMessage().contains("?"));
+            // Rethrow exception for all other issues.
+            throw ge;
+        }
+    }
+
+    @FunctionalInterface
+    interface TestedCode {
+        void run() throws Exception;
+    }
+
+    private WorkingArea setupRepositoryWithSubmodule() throws Exception {
+        WorkingArea workingArea = new WorkingArea();
+
+        File repositoryDir = workingArea.file("dir-repository");
+        File submoduleDir = workingArea.file("dir-submodule");
+
+        assertTrue("did not create dir " + repositoryDir.getName(), repositoryDir.mkdir());
+        assertTrue("did not create dir " + submoduleDir.getName(), submoduleDir.mkdir());
+
+        WorkingArea submoduleWorkingArea = new WorkingArea(submoduleDir).init();
+
+        for (int commit = 1; commit <= 5; commit++) {
+            submoduleWorkingArea.touch("file", String.format("submodule content-%d", commit));
+            submoduleWorkingArea.cgit().add("file");
+            submoduleWorkingArea.cgit().commit(String.format("submodule commit-%d", commit));
+        }
+
+        WorkingArea repositoryWorkingArea = new WorkingArea(repositoryDir).init();
+
+        repositoryWorkingArea.commitEmpty("init");
+
+        repositoryWorkingArea.cgit().add(".");
+        repositoryWorkingArea.cgit().addSubmodule("file://" + submoduleDir.getAbsolutePath(), "submodule");
+        repositoryWorkingArea.cgit().commit("submodule");
+
+        return workingArea;
+    }
 }
