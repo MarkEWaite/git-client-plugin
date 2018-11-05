@@ -28,6 +28,7 @@ import hudson.util.Secret;
 import hudson.Proc;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -46,14 +47,21 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
+import java.nio.file.attribute.UserPrincipalLookupService;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -128,6 +136,29 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * ssh configurations).
      */
     private static final boolean CALL_SETSID;
+
+    /**
+     * Needed file permission for OpenSSH client that is made by Windows,
+     * this will remove unwanted users and inherited permissions
+     * which is required when the git client is using the SSH to clone
+     *
+     * The ssh client that the git client ships ignores file permission on Windows
+     * Which the PowerShell team at Microsoft decided to fix in their port of OpenSSH
+     */
+    static final EnumSet<AclEntryPermission> ACL_ENTRY_PERMISSIONS = EnumSet.of(
+        AclEntryPermission.READ_DATA,
+        AclEntryPermission.WRITE_DATA,
+        AclEntryPermission.APPEND_DATA,
+        AclEntryPermission.READ_NAMED_ATTRS,
+        AclEntryPermission.WRITE_NAMED_ATTRS,
+        AclEntryPermission.EXECUTE,
+        AclEntryPermission.READ_ATTRIBUTES,
+        AclEntryPermission.WRITE_ATTRIBUTES,
+        AclEntryPermission.DELETE,
+        AclEntryPermission.READ_ACL,
+        AclEntryPermission.SYNCHRONIZE
+    );
+
     static {
         acceptSelfSignedCertificates = Boolean.getBoolean(GitClient.class.getName() + ".untrustedSSL");
         CALL_SETSID = setsidExists() && USE_SETSID;
@@ -253,7 +284,12 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         this.listener = listener;
         this.gitExe = gitExe;
         this.environment = environment;
-        this.encoding = isZos() ? "IBM1047" : Charset.defaultCharset().toString();
+        
+        if( isZos() && System.getProperty("ibm.system.encoding") != null ) { 
+            this.encoding = Charset.forName(System.getProperty("ibm.system.encoding")).toString();
+        } else {
+            this.encoding = Charset.defaultCharset().toString();
+        }
 
         launcher = new LocalLauncher(IGitAPI.verbose ? listener : TaskListener.NULL);
     }
@@ -983,7 +1019,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         return new ChangelogCommand() {
 
             /** Equivalent to the git-log raw format but using ISO 8601 date format - also prevent to depend on git CLI future changes */
-            public static final String RAW = "commit %H%ntree %T%nparent %P%nauthor %aN <%aE> %ai%ncommitter %cN <%cE> %ci%n%n%w(76,4,4)%s%n%n%b";
+            public static final String RAW = "commit %H%ntree %T%nparent %P%nauthor %aN <%aE> %ai%ncommitter %cN <%cE> %ci%n%n%w(0,4,4)%B";
             private final List<String> revs = new ArrayList<>();
 
             private Integer n = null;
@@ -1904,8 +1940,60 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 w.println(s);
             }
         }
-        new FilePath(key).chmod(0400);
+        if (launcher.isUnix()) {
+            new FilePath(key).chmod(0400);
+        } else {
+            fixSshKeyOnWindows(key);
+        }
+
         return key;
+    }
+
+    /* package protected for testability */
+    void fixSshKeyOnWindows(File key) throws GitException {
+        if (launcher.isUnix()) return;
+
+        Path file = Paths.get(key.toURI());
+
+        AclFileAttributeView fileAttributeView = Files.getFileAttributeView(file, AclFileAttributeView.class);
+        if (fileAttributeView == null) return;
+
+        String username = getWindowsUserName(fileAttributeView);
+        if (StringUtils.isBlank(username)) return;
+
+        try {
+            UserPrincipalLookupService userPrincipalLookupService = file.getFileSystem().getUserPrincipalLookupService();
+            UserPrincipal userPrincipal = userPrincipalLookupService.lookupPrincipalByName(username);
+            AclEntry aclEntry = AclEntry.newBuilder()
+                .setType(AclEntryType.ALLOW)
+                .setPrincipal(userPrincipal)
+                .setPermissions(ACL_ENTRY_PERMISSIONS)
+                .build();
+            fileAttributeView.setAcl(Collections.singletonList(aclEntry));
+        } catch (IOException | UnsupportedOperationException e) {
+            throw new GitException("Error updating file permission for \"" + key.getAbsolutePath() + "\"");
+        }
+    }
+
+    /* package protected for testability */
+    String getWindowsUserName(AclFileAttributeView aclFileAttributeView) {
+        if (launcher.isUnix()) return "";
+
+        try {
+            return aclFileAttributeView.getOwner().getName();
+        } catch (IOException ignored) {
+            String username = System.getenv("USERNAME");
+            if (StringUtils.isBlank(username)) return "";
+
+            String domain = System.getenv("USERDOMAIN");
+            if (StringUtils.isNotBlank(domain) && !username.endsWith("$")) {
+                username = domain + "\\" + username;
+            } else if (username.endsWith("$")) {
+                username = "BUILTIN\\Administrators";
+            }
+
+            return username;
+        }
     }
 
     /* package protected for testability */
@@ -2163,6 +2251,17 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     	return launchCommandIn(args, workDir, environment, TIMEOUT);
     }
 
+    @SuppressFBWarnings(value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE", justification = "earlier readStderr()/readStdout() call prevents null return")
+    private String readProcessIntoString(Proc process, String encoding, boolean useStderr)
+        throws IOException, UnsupportedEncodingException {
+        if (useStderr) {
+            /* process.getStderr reference is the findbugs warning to be suppressed */
+            return IOUtils.toString(process.getStderr(), encoding);
+        }
+        /* process.getStdout reference is the findbugs warning to be suppressed */
+        return IOUtils.toString(process.getStdout(), encoding);
+    }
+
     private String launchCommandIn(ArgumentListBuilder args, File workDir, EnvVars env, Integer timeout) throws GitException, InterruptedException {
 
         EnvVars freshEnv = new EnvVars(env);
@@ -2204,23 +2303,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
                 status = process.joinWithTimeout(usedTimeout, TimeUnit.MINUTES, listener);
 
-                StringBuilder stdoutBuilder = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getStdout(), encoding))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        stdoutBuilder.append(line);
-                    }
-                }
-                stdout = stdoutBuilder.toString();
-
-                StringBuilder stderrBuilder = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getStderr(), encoding))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        stderrBuilder.append(line);
-                    }
-                }
-                stderr = stderrBuilder.toString();
+                stdout = readProcessIntoString(process, encoding, false);
+                stderr = readProcessIntoString(process, encoding, true);
             } else {
                 // JENKINS-13356: capture stdout and stderr separately
                 ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
