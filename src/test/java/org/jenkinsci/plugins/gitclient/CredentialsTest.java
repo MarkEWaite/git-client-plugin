@@ -378,7 +378,7 @@ public class CredentialsTest {
         git.prune(new RemoteConfig(git.getRepository().getConfig(), "origin"));
     }
 
-    // @Test
+    @Test
     public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
         File clonedFile = new File(repo, fileToCheck);
         String origin = "origin";
