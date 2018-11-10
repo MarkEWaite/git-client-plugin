@@ -73,10 +73,10 @@ public class GitClientTest {
     private GitClient srcGitClient;
 
     /* commit known to exist in upstream. */
-    final ObjectId upstreamCommit = ObjectId.fromString("f75720d5de9d79ab4be2633a21de23b3ccbf8ce3");
-    final String upstreamCommitAuthor = "Teubel György";
-    final String upsstreamCommitEmail = "<tgyurci@freemail.hu>";
-    final ObjectId upstreamCommitPredecessor = ObjectId.fromString("867e5f148377fd5a6d96e5aafbdaac132a117a5a");
+    private final ObjectId upstreamCommit = ObjectId.fromString("f75720d5de9d79ab4be2633a21de23b3ccbf8ce3");
+    private final String upstreamCommitAuthor = "Teubel György";
+    private final String upstreamCommitEmail = "<tgyurci@freemail.hu>";
+    private final ObjectId upstreamCommitPredecessor = ObjectId.fromString("867e5f148377fd5a6d96e5aafbdaac132a117a5a");
 
     /* URL of upstream (GitHub) repository. */
     private final String upstreamRepoURL = "https://github.com/jenkinsci/git-client-plugin";
@@ -220,7 +220,7 @@ public class GitClientTest {
         return headList.get(0);
     }
 
-    public void createFile(String path, String content) throws Exception {
+    private void createFile(String path, String content) throws Exception {
         File aFile = new File(repoRoot, path);
         File parentDir = aFile.getParentFile();
         if (parentDir != null) {
@@ -255,6 +255,41 @@ public class GitClientTest {
 
     private String randomEmail(String name) {
         return name.replaceAll(" ", ".") + "@middle.earth";
+    }
+
+    @Test
+    @Issue("JENKINS-29977")
+    /**
+     * Changelog was formatted on word boundary prior to
+     * 72 characters with git client plugin 2.0+ when using CLI git.
+     * Was not truncated by git client plugin using JGit (And Apache version).
+     * Rely on caller to truncate first line if desired.
+     * Matching change will be included in git plugin 4.0.0
+     * to retain existing truncation behavior.
+     */
+    public void testChangelogVeryLong() throws Exception {
+
+        final String gitMessage =
+                        "Uno Dos Tres Cuatro Cinco Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut " +
+                        "posuere tellus eu efficitur tristique. In iaculis neque in dolor vulputate" +
+                        "sollicitudin eget a quam. Donec finibus sapien quis lectus euismod facilisis. Integer" +
+                        "massa purus, scelerisque id iaculis ut, blandit vitae velit. Pellentesque lobortis" +
+                        "aliquet felis, vel laoreet ipsum tincidunt at. Mauris tellus est, cursus vitae ex" +
+                        "eget, venenatis auctor eros. Sed sagittis porta odio. Donec ut interdum massa. Aliquam" +
+                        "sagittis, mi sit amet sollicitudin elementum, velit quam eleifend nisl, in rhoncus" +
+                        "felis nibh eu nibh. Class aptent taciti sociosqu ad litora torquent per conubia " +
+                        "nostra, per inceptos himenaeos." +
+                        "\nseis\n" +
+                        "\nasfasfasfasf\n"
+                ;
+        final String content = String.format("A random UUID: %s\n", UUID.randomUUID().toString());
+        ObjectId message = commitFile("One-File.txt", content, gitMessage);
+
+        ChangelogCommand changelog = gitClient.changelog();
+        StringWriter changelogStringWriter = new StringWriter();
+        changelog.includes(message).to(changelogStringWriter).execute();
+        assertThat(changelogStringWriter.toString(), containsString("Ut posuere"));
+        assertThat(changelogStringWriter.toString(), containsString("conubia nostra"));
     }
 
     @Test
@@ -399,7 +434,7 @@ public class GitClientTest {
     @Test(expected = GitException.class)
     public void testCommitNotFoundException() throws GitException, InterruptedException {
         /* Search wrong repository for a commit */
-        assertAuthor(upstreamCommitPredecessor, upstreamCommit, upstreamCommitAuthor, upsstreamCommitEmail);
+        assertAuthor(upstreamCommitPredecessor, upstreamCommit, upstreamCommitAuthor, upstreamCommitEmail);
     }
 
     @Test
@@ -585,8 +620,6 @@ public class GitClientTest {
         gitCmd.assertOutputContains(".*On branch.*" + branchName + ".*");
     }
 
-    private int lastFetchPath = -1;
-
     private void fetch(GitClient client, String remote, String firstRefSpec, String... optionalRefSpecs) throws Exception {
         List<RefSpec> refSpecs = new ArrayList<>();
         RefSpec refSpec = new RefSpec(firstRefSpec);
@@ -594,8 +627,7 @@ public class GitClientTest {
         for (String refSpecString : optionalRefSpecs) {
             refSpecs.add(new RefSpec(refSpecString));
         }
-        lastFetchPath = random.nextInt(2);
-        switch (lastFetchPath) {
+        switch (random.nextInt(2)) {
             default:
             case 0:
                 if (remote.equals("origin")) {
@@ -859,7 +891,7 @@ public class GitClientTest {
     public void testGetHeadRev_String_String_Empty_Result() throws Exception {
         String url = repoRoot.getAbsolutePath();
         ObjectId nonExistent = gitClient.getHeadRev(url, "this branch doesn't exist");
-        assertEquals(null, nonExistent);
+        assertNull(nonExistent);
     }
 
     @Test
@@ -875,9 +907,8 @@ public class GitClientTest {
         String pattern = null;
         boolean headsOnly = false; // Need variations here
         boolean tagsOnly = false; // Need variations here
-        Map<String, ObjectId> expResult = null; // Working here
         Map<String, ObjectId> result = gitClient.getRemoteReferences(url, pattern, headsOnly, tagsOnly);
-        assertEquals(expResult, result);
+        assertNull(result);
     }
 
     @Issue("JENKINS-30589")
@@ -1142,7 +1173,7 @@ public class GitClientTest {
                 lastModifiedFile = file;
             }
         }
-        assertTrue("No files modified " + repoRoot, lastModifiedFile != null);
+        assertNotNull("No files modified " + repoRoot, lastModifiedFile);
 
         /* Checkout a new branch - verify no files retain modification */
         gitClient.checkout().branch("master-" + randomUUID).ref(commitA.getName()).execute();
@@ -1189,8 +1220,7 @@ public class GitClientTest {
                 dirList.add(dir.getName());
             }
         }
-        assertThat(dirList, containsInAnyOrder(expectedDirList.toArray(new String[expectedDirList.size()])));
-        assertThat(expectedDirList, containsInAnyOrder(dirList.toArray(new String[dirList.size()])));
+        assertThat(dirList, containsInAnyOrder(expectedDirList.toArray()));
     }
 
     private void assertSubmoduleContents(String... directories) throws Exception {
@@ -1800,5 +1830,60 @@ public class GitClientTest {
 
         Set<GitObject> result = gitClient.getTags();
         assertThat(result, containsInAnyOrder(expectedTag, expectedTag2, expectedTag3));
+    }
+
+    private String truncateAtWord(String src, int maxLength) {
+        java.text.BreakIterator breakIterator = java.text.BreakIterator.getWordInstance();
+        breakIterator.setText(src);
+        return src.substring(0, breakIterator.preceding(maxLength + 1)).trim();
+    }
+
+    private String wrapAtWord(String src, int maxLength) {
+        return org.apache.commons.text.WordUtils.wrap(src, maxLength);
+    }
+
+    private String padLinesWithSpaces(String src, int spacePadCount) {
+        char[] paddingArray = new char[spacePadCount];
+        Arrays.fill(paddingArray, ' ');
+        String padding = new String(paddingArray);
+        return padding + src.replace("\n", "\n" + padding).trim();
+    }
+
+    @Test
+    @Issue("JENKINS-29977")
+    public void testChangelogFirstLineTruncation() throws Exception {
+        //            1         2         3         4         5         6         7         8
+        //   12345678901234567890123456789012345678901234567890123456789012345678901234567890
+        final String longFirstLine =
+            "The first line of this commit message is longer than 72 characters to show JENKINS-29977";
+        final String longBody =
+            "The body of this commit message is also longer than 72 characters though that is not part of JENKINS-29977";
+        // Intentionally randomize whether the commit message body ends with a newline character
+        final String commitMessage = longFirstLine + "\n\n" + longBody + (random.nextBoolean() ? "\n" : "");
+        final ObjectId commit = commitOneFile(commitMessage);
+        ChangelogCommand changelog = gitClient.changelog();
+        StringWriter changelogStringWriter = new StringWriter();
+        changelog.includes(commit).to(changelogStringWriter).execute();
+
+        final String truncatedFirstLine = truncateAtWord(longFirstLine, 72) + "\n";
+        final String truncatedBody = truncateAtWord(longBody, 72) + "\n";
+
+        final String wrappedFirstLine = wrapAtWord(longFirstLine, 72);
+        final String wrappedBody = wrapAtWord(longBody, 72);
+
+        // Truncated lines are NOT included in the changelog
+        assertThat(changelogStringWriter.toString(), not(containsString(truncatedFirstLine)));
+        assertThat(changelogStringWriter.toString(), not(containsString(truncatedBody)));
+
+        // Wrapped lines are NOT included in the changelog
+        assertThat(changelogStringWriter.toString(), not(containsString(padLinesWithSpaces(wrappedFirstLine, 4))));
+        assertThat(changelogStringWriter.toString(), not(containsString(padLinesWithSpaces(wrappedBody, 4))));
+
+        // Unmodified lines are included in the changelog
+        assertThat(changelogStringWriter.toString(), containsString(longFirstLine));
+        assertThat(changelogStringWriter.toString(), containsString(longBody));
+
+        // Entire unmodified commit message is included in the changelog
+        assertThat(changelogStringWriter.toString(), containsString(padLinesWithSpaces(commitMessage, 4)));
     }
 }
