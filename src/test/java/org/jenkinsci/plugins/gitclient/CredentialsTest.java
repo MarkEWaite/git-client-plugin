@@ -379,34 +379,6 @@ public class CredentialsTest {
     }
 
     @Test
-    public void testCloneWithCredentials() throws URISyntaxException, GitException, InterruptedException, MalformedURLException, IOException {
-        File clonedFile = new File(repo, fileToCheck);
-        String origin = "origin";
-        List<RefSpec> refSpecs = new ArrayList<>();
-        refSpecs.add(new RefSpec("+refs/heads/master:refs/remotes/" + origin + "/master"));
-        addCredential();
-        CloneCommand cmd = git.clone_().url(gitRepoURL).repositoryName(origin).refspecs(refSpecs).reference(CURR_DIR.getAbsolutePath());
-        if (isShallowCloneSupported(gitImpl, git)) {
-            // Reduce network transfer by using shallow clone
-            cmd.shallow(true).depth(1);
-        }
-        cmd.execute();
-        ObjectId master = git.getHeadRev(gitRepoURL, "master");
-        git.checkout().branch("master").ref(origin + "/master").deleteBranchIfExist(true).execute();
-        if (submodules) {
-            git.submoduleInit();
-            SubmoduleUpdateCommand subcmd = git.submoduleUpdate();
-            subcmd.execute();
-        }
-        assertTrue("master: " + master + " not in repo", git.isCommitInRepo(master));
-        assertEquals("Master != HEAD", master, git.getRepository().findRef("master").getObjectId());
-        assertEquals("Wrong branch", "master", git.getRepository().getBranch());
-        assertTrue("No file " + fileToCheck + " in " + repo + ", has " + listDir(repo), clonedFile.exists());
-        /* prune opens a remote connection to list remote branches */
-        git.prune(new RemoteConfig(git.getRepository().getConfig(), origin));
-    }
-
-    @Test
     public void testRemoteReferencesWithCredentials() throws Exception {
         assumeTrue(testPeriodNotExpired());
         addCredential();
