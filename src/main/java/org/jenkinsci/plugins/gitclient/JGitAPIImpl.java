@@ -2036,7 +2036,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public List<ObjectId> revListAll() throws GitException {
         List<ObjectId> oidList = new ArrayList<>();
         RevListCommand revListCommand = revList_();
-        revListCommand.all();
+        revListCommand.all(true);
         revListCommand.to(oidList);
         try {
             revListCommand.execute();

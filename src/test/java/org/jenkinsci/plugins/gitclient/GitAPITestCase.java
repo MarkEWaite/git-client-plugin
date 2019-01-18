@@ -2959,7 +2959,7 @@ public abstract class GitAPITestCase extends TestCase {
         w.launchCommand("git", "pull", localMirror());
 
         RevListCommand revListCommand = w.git.revList_();
-        revListCommand.all();
+        revListCommand.all(true);
         revListCommand.to(oidList);
         revListCommand.execute();
 
