@@ -1376,7 +1376,7 @@ public abstract class GitAPITestCase extends TestCase {
         assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/branch1", "origin/branch2", "origin/HEAD"));
 
         /* Fetch with prune should remove branch1 from newArea */
-        newArea.git.fetch_().from(new URIish(bare.repo.toString()), refSpecs).prune().execute();
+        newArea.git.fetch_().from(new URIish(bare.repo.toString()), refSpecs).prune(true).execute();
         remoteBranches = newArea.git.getRemoteBranches();
         assertThat(getBranchNames(remoteBranches), containsInAnyOrder("origin/master", "origin/branch2", "origin/HEAD"));
 
