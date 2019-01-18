@@ -164,6 +164,24 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         CALL_SETSID = setsidExists() && USE_SETSID;
     }
 
+    /**
+     * Constant which prevents use of 'force' in git fetch with CLI git versions 2.20 and later.
+     *
+     * <code>USE_FORCE_FETCH=Boolean.valueOf(System.getProperty(CliGitAPIImpl.class.getName() + ".forceFetch", "true"))</code>.
+     *
+     * Command line git 2.20 and later have changed fetch of remote
+     * tags which already exist in the repository. Command line git
+     * before 2.20 silently updates an existing tag if the remote tag
+     * points to a different SHA1 than the local tag.  Command line
+     * git 2.20 and later do not update an existing tag if the remote
+     * tag points to a different SHA1 than the local tag unless the
+     * 'force' option is passed to 'git fetch'.
+     *
+     * Use '-Dorg.jenkinsci.plugins.gitclient.CliGitAPIImpl.forceFetch=false'
+     * to prevent 'force' in 'git fetch' with CLI git 2.20 and later.
+     */
+    private static final boolean USE_FORCE_FETCH = Boolean.valueOf(System.getProperty(CliGitAPIImpl.class.getName() + ".forceFetch", "true"));
+
     private static final long serialVersionUID = 1;
     static final String SPARSE_CHECKOUT_FILE_DIR = ".git/info";
     static final String SPARSE_CHECKOUT_FILE_PATH = ".git/info/sparse-checkout";
@@ -428,6 +446,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 ArgumentListBuilder args = new ArgumentListBuilder();
                 args.add("fetch");
                 args.add(tags ? "--tags" : "--no-tags");
+                if (USE_FORCE_FETCH && isAtLeastVersion(2, 20, 0, 0)) {
+                    /* CLI git 2.20.0 fixed a long-standing bug that now requires --force to update existing tags */
+                    args.add("--force");
+                }
                 if (isAtLeastVersion(1,7,1,0))
                     args.add("--progress");
 
@@ -484,6 +506,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
         args.add("fetch", "-t");
+        if (USE_FORCE_FETCH && isAtLeastVersion(2, 20, 0, 0)) {
+            /* CLI git 2.20.0 fixed a long-standing bug that now requires --force to update existing tags */
+            args.add("--force");
+        }
 
         if (remoteName == null)
             remoteName = getDefaultRemote();
@@ -650,9 +676,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if (reference != null && !reference.isEmpty()) {
                     File referencePath = new File(reference);
                     if (!referencePath.exists())
-                        listener.error("Reference path does not exist: " + reference);
+                        listener.getLogger().println("[WARNING] Reference path does not exist: " + reference);
                     else if (!referencePath.isDirectory())
-                        listener.error("Reference path is not a directory: " + reference);
+                        listener.getLogger().println("[WARNING] Reference path is not a directory: " + reference);
                     else {
                         // reference path can either be a normal or a base repository
                         File objectsPath = new File(referencePath, ".git/objects");
@@ -661,7 +687,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                             objectsPath = new File(referencePath, "objects");
                         }
                         if (!objectsPath.isDirectory())
-                            listener.error("Reference path does not contain an objects directory (no git repo?): " + objectsPath);
+                            listener.getLogger().println("[WARNING] Reference path does not contain an objects directory (not a git repo?): " + objectsPath);
                         else {
                             File alternates = new File(workspace, ".git/objects/info/alternates");
                             try (PrintWriter w = new PrintWriter(alternates, Charset.defaultCharset().toString())) {
@@ -1264,9 +1290,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if ((ref != null) && !ref.isEmpty()) {
                     File referencePath = new File(ref);
                     if (!referencePath.exists())
-                        listener.error("Reference path does not exist: " + ref);
+                        listener.getLogger().println("[WARNING] Reference path does not exist: " + ref);
                     else if (!referencePath.isDirectory())
-                        listener.error("Reference path is not a directory: " + ref);
+                        listener.getLogger().println("[WARNING] Reference path is not a directory: " + ref);
                     else
                         args.add("--reference", ref);
                 }
