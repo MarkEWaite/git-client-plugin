@@ -4867,7 +4867,7 @@ public abstract class GitAPITestCase extends TestCase {
                     .execute();
         } else {
             /* JGit does not implement octopus merge */
-            w.cmd("git merge a-b c d-e-f");
+            w.launchCommand("git", "merge", "a-b", "c", "d-e-f");
         }
         ObjectId mergeCommit = w.head();
 
