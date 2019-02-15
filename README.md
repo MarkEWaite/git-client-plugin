@@ -1,5 +1,5 @@
-Utility plugin for Git-related support
-======================================
+Utility plugin for Git support
+==============================
 
 Extracted from [git-plugin](https://plugins.jenkins.io/git)
 to make it easier for other plugins to use and contribute new features.
