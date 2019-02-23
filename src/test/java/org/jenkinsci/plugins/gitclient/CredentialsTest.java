@@ -347,11 +347,11 @@ public class CredentialsTest {
      * @return true if another test should be allowed to start
      */
     private boolean testPeriodNotExpired() {
-        return (System.currentTimeMillis() - firstTestStartTime) < ((180 - 30) * 1000L);
+        return (System.currentTimeMillis() - firstTestStartTime) < ((180 - 130) * 1000L);
     }
 
     @Test
-    @Issue("JENKINS_50573")
+    @Issue("JENKINS-50573")
     public void testFetchWithCredentials() throws Exception {
         assumeTrue(testPeriodNotExpired());
         File clonedFile = new File(repo, fileToCheck);
@@ -402,7 +402,7 @@ public class CredentialsTest {
     }
 
     @Test
-    @Issue("JENKINS_50573")
+    @Issue("JENKINS-50573")
     public void isURIishRemote() throws Exception {
         URIish uri = new URIish(gitRepoURL);
         assertTrue("Should be remote but isn't: " + uri, uri.isRemote());

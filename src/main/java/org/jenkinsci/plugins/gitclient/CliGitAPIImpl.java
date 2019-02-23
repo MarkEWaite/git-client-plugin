@@ -1,6 +1,4 @@
-
 package org.jenkinsci.plugins.gitclient;
-
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
@@ -38,6 +36,7 @@ import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
+import org.jenkinsci.plugins.gitclient.cgit.GitCommandsExecutor;
 import org.kohsuke.stapler.framework.io.WriterOutputStream;
 
 import java.io.*;
@@ -67,8 +66,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -162,6 +160,24 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         acceptSelfSignedCertificates = Boolean.getBoolean(GitClient.class.getName() + ".untrustedSSL");
         CALL_SETSID = setsidExists() && USE_SETSID;
     }
+
+    /**
+     * Constant which prevents use of 'force' in git fetch with CLI git versions 2.20 and later.
+     *
+     * <code>USE_FORCE_FETCH=Boolean.valueOf(System.getProperty(CliGitAPIImpl.class.getName() + ".forceFetch", "true"))</code>.
+     *
+     * Command line git 2.20 and later have changed fetch of remote
+     * tags which already exist in the repository. Command line git
+     * before 2.20 silently updates an existing tag if the remote tag
+     * points to a different SHA1 than the local tag.  Command line
+     * git 2.20 and later do not update an existing tag if the remote
+     * tag points to a different SHA1 than the local tag unless the
+     * 'force' option is passed to 'git fetch'.
+     *
+     * Use '-Dorg.jenkinsci.plugins.gitclient.CliGitAPIImpl.forceFetch=false'
+     * to prevent 'force' in 'git fetch' with CLI git 2.20 and later.
+     */
+    private static final boolean USE_FORCE_FETCH = Boolean.valueOf(System.getProperty(CliGitAPIImpl.class.getName() + ".forceFetch", "true"));
 
     private static final long serialVersionUID = 1;
     static final String SPARSE_CHECKOUT_FILE_DIR = ".git/info";
@@ -283,8 +299,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         this.listener = listener;
         this.gitExe = gitExe;
         this.environment = environment;
-        
-        if( isZos() && System.getProperty("ibm.system.encoding") != null ) { 
+
+        if( isZos() && System.getProperty("ibm.system.encoding") != null ) {
             this.encoding = Charset.forName(System.getProperty("ibm.system.encoding")).toString();
         } else {
             this.encoding = Charset.defaultCharset().toString();
@@ -427,6 +443,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 ArgumentListBuilder args = new ArgumentListBuilder();
                 args.add("fetch");
                 args.add(tags ? "--tags" : "--no-tags");
+                if (USE_FORCE_FETCH && isAtLeastVersion(2, 20, 0, 0)) {
+                    /* CLI git 2.20.0 fixed a long-standing bug that now requires --force to update existing tags */
+                    args.add("--force");
+                }
                 if (isAtLeastVersion(1,7,1,0))
                     args.add("--progress");
 
@@ -483,6 +503,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
         args.add("fetch", "-t");
+        if (USE_FORCE_FETCH && isAtLeastVersion(2, 20, 0, 0)) {
+            /* CLI git 2.20.0 fixed a long-standing bug that now requires --force to update existing tags */
+            args.add("--force");
+        }
 
         if (remoteName == null)
             remoteName = getDefaultRemote();
@@ -649,9 +673,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if (reference != null && !reference.isEmpty()) {
                     File referencePath = new File(reference);
                     if (!referencePath.exists())
-                        listener.error("Reference path does not exist: " + reference);
+                        listener.getLogger().println("[WARNING] Reference path does not exist: " + reference);
                     else if (!referencePath.isDirectory())
-                        listener.error("Reference path is not a directory: " + reference);
+                        listener.getLogger().println("[WARNING] Reference path is not a directory: " + reference);
                     else {
                         // reference path can either be a normal or a base repository
                         File objectsPath = new File(referencePath, ".git/objects");
@@ -660,7 +684,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                             objectsPath = new File(referencePath, "objects");
                         }
                         if (!objectsPath.isDirectory())
-                            listener.error("Reference path does not contain an objects directory (no git repo?): " + objectsPath);
+                            listener.getLogger().println("[WARNING] Reference path does not contain an objects directory (not a git repo?): " + objectsPath);
                         else {
                             File alternates = new File(workspace, ".git/objects/info/alternates");
                             try (PrintWriter w = new PrintWriter(alternates, Charset.defaultCharset().toString())) {
@@ -1143,7 +1167,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             private Map<String, String> submodBranch   = new HashMap<>();
             private Integer timeout;
             private Integer depth = 1;
-            private Integer threads = 1;
+            private int threads = 1;
 
             @Override
             public SubmoduleUpdateCommand recursive(boolean recursive) {
@@ -1194,7 +1218,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public SubmoduleUpdateCommand threads(Integer threads) {
+            public SubmoduleUpdateCommand threads(int threads) {
                 this.threads = threads;
                 return this;
             }
@@ -1224,9 +1248,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if ((ref != null) && !ref.isEmpty()) {
                     File referencePath = new File(ref);
                     if (!referencePath.exists())
-                        listener.error("Reference path does not exist: " + ref);
+                        listener.getLogger().println("[WARNING] Reference path does not exist: " + ref);
                     else if (!referencePath.isDirectory())
-                        listener.error("Reference path is not a directory: " + ref);
+                        listener.getLogger().println("[WARNING] Reference path is not a directory: " + ref);
                     else
                         args.add("--reference", ref);
                 }
@@ -1264,12 +1288,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 Pattern pattern = Pattern.compile(SUBMODULE_REMOTE_PATTERN_STRING, Pattern.MULTILINE);
                 Matcher matcher = pattern.matcher(cfgOutput);
 
-                ExecutorService executorService;
-                if (threads > 1) {
-                    executorService = Executors.newFixedThreadPool(threads);
-                } else {
-                    executorService = Executors.newSingleThreadExecutor();
-                }
+                List<Callable<String>> commands = new ArrayList<>();
 
                 while (matcher.find()) {
                     ArgumentListBuilder perModuleArgs = args.clone();
@@ -1306,17 +1325,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     perModuleArgs.add(sModulePath);
                     StandardCredentials finalCred = cred;
                     URIish finalUrIish = urIish;
-                    executorService.submit(() -> {
-                        try {
-                            launchCommandWithCredentials(perModuleArgs, workspace, finalCred, finalUrIish, timeout);
-                        } catch (InterruptedException e) {
-                            throw new GitException("Interrupted while updating submodule for " + sModuleName);
-                        }
-                    });
+
+                    commands.add(() -> launchCommandWithCredentials(perModuleArgs, workspace, finalCred, finalUrIish, timeout));
                 }
 
-                executorService.shutdown();
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                new GitCommandsExecutor(threads, listener).invokeAll(commands);
             }
         };
     }
@@ -1928,12 +1941,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         AclFileAttributeView fileAttributeView = Files.getFileAttributeView(file, AclFileAttributeView.class);
         if (fileAttributeView == null) return;
 
-        String username = getWindowsUserName(fileAttributeView);
-        if (StringUtils.isBlank(username)) return;
-
         try {
-            UserPrincipalLookupService userPrincipalLookupService = file.getFileSystem().getUserPrincipalLookupService();
-            UserPrincipal userPrincipal = userPrincipalLookupService.lookupPrincipalByName(username);
+            UserPrincipal userPrincipal = fileAttributeView.getOwner();
             AclEntry aclEntry = AclEntry.newBuilder()
                 .setType(AclEntryType.ALLOW)
                 .setPrincipal(userPrincipal)
@@ -1941,28 +1950,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 .build();
             fileAttributeView.setAcl(Collections.singletonList(aclEntry));
         } catch (IOException | UnsupportedOperationException e) {
-            throw new GitException("Error updating file permission for \"" + key.getAbsolutePath() + "\"");
-        }
-    }
-
-    /* package protected for testability */
-    String getWindowsUserName(AclFileAttributeView aclFileAttributeView) {
-        if (launcher.isUnix()) return "";
-
-        try {
-            return aclFileAttributeView.getOwner().getName();
-        } catch (IOException ignored) {
-            String username = System.getenv("USERNAME");
-            if (StringUtils.isBlank(username)) return "";
-
-            String domain = System.getenv("USERDOMAIN");
-            if (StringUtils.isNotBlank(domain) && !username.endsWith("$")) {
-                username = domain + "\\" + username;
-            } else if (username.endsWith("$")) {
-                username = "BUILTIN\\Administrators";
-            }
-
-            return username;
+            throw new GitException("Error updating file permission for \"" + key.getAbsolutePath() + "\"", e);
         }
     }
 
