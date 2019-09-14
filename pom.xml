@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>3.40</version>
+    <version>3.49</version>
     <relativePath />
   </parent>
 
@@ -16,7 +16,7 @@
 
   <name>Jenkins Git client plugin</name>
   <description>Utility plugin for Git support in Jenkins</description>
-  <url>https://wiki.jenkins.io/display/JENKINS/Git+Client+Plugin</url>
+  <url>https://github.com/jenkinsci/git-client-plugin</url>
   <inceptionYear>2013</inceptionYear>
   <licenses>
     <license>
@@ -42,13 +42,13 @@
   </scm>
 
   <properties>
-    <revision>3.0.0-beta8</revision>
+    <revision>3.0.0-beta12</revision>
     <changelist>-SNAPSHOT</changelist>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <argLine>-Dfile.encoding=${project.build.sourceEncoding}</argLine>
     <jenkins.version>2.121.1</jenkins.version>
     <java.level>8</java.level>
-    <jgit.version>5.3.0.201903130848-r</jgit.version>
+    <jgit.version>5.5.0.201909110433-r</jgit.version>
   </properties>
 
   <dependencies>
@@ -130,7 +130,7 @@
       </exclusions>
     </dependency>
     <dependency>
-      <!-- Include jgit's LFS module for large file support -->
+      <!-- Include jgit's LFS module for eventual large file support -->
       <groupId>org.eclipse.jgit</groupId>
       <artifactId>org.eclipse.jgit.lfs</artifactId>
       <version>${jgit.version}</version>
@@ -170,7 +170,7 @@
     <dependency>
       <groupId>nl.jqno.equalsverifier</groupId>
       <artifactId>equalsverifier</artifactId>
-      <version>3.1.6</version>
+      <version>3.1.9</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -188,8 +188,15 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-text</artifactId>
-      <version>1.6</version>
+      <version>1.7</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <!-- Jenkins 2.176.1 requires a newer version -->
+          <groupId>org.jenkins-ci.modules</groupId>
+          <artifactId>ssh-cli-auth</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
@@ -209,7 +216,6 @@
     <dependency>
       <groupId>org.objenesis</groupId>
       <artifactId>objenesis</artifactId>
-      <version>3.0.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -221,8 +227,13 @@
     <dependency>
       <groupId>com.github.spotbugs</groupId>
       <artifactId>spotbugs-annotations</artifactId>
-      <version>3.1.12</version>
       <optional>true</optional>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.code.findbugs</groupId>
+          <artifactId>jsr305</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
@@ -249,22 +260,19 @@
     </pluginRepository>
   </pluginRepositories>
 
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.jenkins.tools.bom</groupId>
+        <artifactId>bom</artifactId>
+        <version>2.138.1</version>
+        <scope>import</scope>
+        <type>pom</type>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <build>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.8.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.0.0-M3</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-javadoc-plugin</artifactId>
-        </plugin>
-      </plugins>
-    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -299,18 +307,6 @@
               <value>true</value>
             </property>
           </systemProperties>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>com.github.spotbugs</groupId>
-        <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>3.1.11</version>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>findbugs-maven-plugin</artifactId>
-        <configuration>
-          <skip>true</skip>
         </configuration>
       </plugin>
     </plugins>
