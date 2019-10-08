@@ -62,8 +62,8 @@ import org.junit.rules.Timeout;
 public class CredentialsTest {
 
     // Required for credentials use
-    @Rule
-    public final JenkinsRule j = new JenkinsRule();
+    @ClassRule
+    public static final JenkinsRule j = new JenkinsRule();
 
     private final String gitImpl;
     private final String gitRepoURL;
@@ -75,6 +75,7 @@ public class CredentialsTest {
     private final Boolean submodules;
     private final Boolean useParentCreds;
     private final char specialCharacter;
+    private final Boolean credentialsEmbeddedInURL;
 
     private GitClient git;
     private File repo;
@@ -84,9 +85,6 @@ public class CredentialsTest {
 
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
-
-    @Rule
-    public TestRule timeout = new DisableOnDebug(Timeout.seconds(17));
 
     private int logCount;
     private LogHandler handler;
@@ -109,7 +107,7 @@ public class CredentialsTest {
             + (isWindows() ? "" : "*<>:|?");
     private static int specialsIndex = 0;
 
-    public CredentialsTest(String gitImpl, String gitRepoUrl, String username, String password, File privateKey, String passphrase, String fileToCheck, Boolean submodules, Boolean useParentCreds) {
+    public CredentialsTest(String gitImpl, String gitRepoUrl, String username, String password, File privateKey, String passphrase, String fileToCheck, Boolean submodules, Boolean useParentCreds, Boolean credentialsEmbeddedInURL) {
         this.gitImpl = gitImpl;
         this.gitRepoURL = gitRepoUrl;
         this.privateKey = privateKey;
@@ -120,6 +118,7 @@ public class CredentialsTest {
         this.submodules = submodules;
         this.useParentCreds = useParentCreds;
         this.specialCharacter = SPECIALS_TO_CHECK.charAt(specialsIndex);
+        this.credentialsEmbeddedInURL = credentialsEmbeddedInURL;
         specialsIndex = specialsIndex + 1;
         if (specialsIndex >= SPECIALS_TO_CHECK.length()) {
             specialsIndex = 0;
@@ -159,9 +158,20 @@ public class CredentialsTest {
         if (privateKey != null && privateKey.exists()) {
             testedCredential = newPrivateKeyCredential(username, privateKey);
         }
-        assertThat(testedCredential, notNullValue());
-        Fingerprint fingerprint = CredentialsProvider.getFingerprintOf(testedCredential);
-        assertThat("Fingerprint should not be set", fingerprint, nullValue());
+        if (!credentialsEmbeddedInURL) {
+            assertThat(testedCredential, notNullValue());
+            Fingerprint fingerprint = CredentialsProvider.getFingerprintOf(testedCredential);
+            assertThat("Fingerprint should not be set", fingerprint, nullValue());
+        }
+    }
+
+    @Before
+    public void enableSETSID() throws IOException, InterruptedException {
+        if (gitImpl.equals("git") && privateKey != null && passphrase != null) {
+            org.jenkinsci.plugins.gitclient.CliGitAPIImpl.CALL_SETSID = true;
+        } else {
+            org.jenkinsci.plugins.gitclient.CliGitAPIImpl.CALL_SETSID = false;
+        }
     }
 
     @After
@@ -177,6 +187,11 @@ public class CredentialsTest {
         if (git != null) {
             git.clearCredentials();
         }
+    }
+
+    @After
+    public void disableSETSID() throws IOException, InterruptedException {
+        org.jenkinsci.plugins.gitclient.CliGitAPIImpl.CALL_SETSID = false;
     }
 
     private BasicSSHUserPrivateKey newPrivateKeyCredential(String username, File privateKey) throws IOException {
@@ -210,7 +225,7 @@ public class CredentialsTest {
         return cli.isAtLeastVersion(1, 9, 0, 0);
     }
 
-    @Parameterized.Parameters(name = "{2}-{1}-{0}-{5}")
+    @Parameterized.Parameters(name = "Impl:{0} User:{2} Pass:{3} Embed:{9} Phrase:{5} URL:{1}")
     public static Collection gitRepoUrls() throws MalformedURLException, FileNotFoundException, IOException, InterruptedException, ParseException {
         List<Object[]> repos = new ArrayList<>();
         String[] implementations = isCredentialsSupported() ? new String[]{"git", "jgit", "jgitapache"} : new String[]{"jgit", "jgitapache"};
@@ -225,7 +240,7 @@ public class CredentialsTest {
                 String url = "https://github.com/jenkinsci/git-client-plugin.git";
                 /* Add URL if it matches the pattern */
                 if (URL_MUST_MATCH_PATTERN.matcher(url).matches()) {
-                    Object[] masterRepo = {implementation, url, username, null, DEFAULT_PRIVATE_KEY, null, "README.md", false, false};
+                    Object[] masterRepo = {implementation, url, username, null, DEFAULT_PRIVATE_KEY, null, "README.md", false, false, false};
                     repos.add(masterRepo);
                 }
             }
@@ -298,8 +313,18 @@ public class CredentialsTest {
 
                     /* Add URL if it matches the pattern */
                     if (URL_MUST_MATCH_PATTERN.matcher(repoURL).matches()) {
-                        Object[] repo = {implementation, repoURL, username, password, privateKey, passphrase, fileToCheck, submodules, useParentCreds};
+                        Object[] repo = {implementation, repoURL, username, password, privateKey, passphrase, fileToCheck, submodules, useParentCreds, false};
                         repos.add(repo);
+                        /* Add embedded credentials test case if valid username, valid password, CLI git, and http protocol */
+                        if (username != null && !username.matches(".*[@:].*") && // Skip special cases of username
+                            password != null && !password.matches(".*[@:].*") && // Skip special cases of password
+                            implementation.equals("git")                      && // Embedded credentials only implemented for CLI git
+                            repoURL.startsWith("http")) {
+                            /* Use existing username and password to create an embedded credentials test case */
+                            String repoURLwithCredentials = repoURL.replaceAll("(https?://)(.*@)?(.*)", "$1" + username + ":" + password + "@$3");
+                            Object[] repoWithCredentials = {implementation, repoURLwithCredentials, username, password, privateKey, passphrase, fileToCheck, submodules, useParentCreds, true};
+                            repos.add(0, repoWithCredentials);
+                        }
                     }
                 }
             }
@@ -333,6 +358,12 @@ public class CredentialsTest {
     }
 
     private void addCredential() throws IOException {
+        //Begin - JENKINS-56257
+        //Credential need not be added when supplied in the URL
+        if (this.credentialsEmbeddedInURL) {
+            return;
+        }
+        //End - JENKINS-56257
         // Always use addDefaultCredentials
         git.addDefaultCredentials(testedCredential);
         // addCredential stops tests to prompt for passphrase
@@ -347,7 +378,7 @@ public class CredentialsTest {
      * @return true if another test should be allowed to start
      */
     private boolean testPeriodNotExpired() {
-        return (System.currentTimeMillis() - firstTestStartTime) < ((180 - 130) * 1000L);
+        return (System.currentTimeMillis() - firstTestStartTime) < ((180 - 70) * 1000L);
     }
 
     @Test
