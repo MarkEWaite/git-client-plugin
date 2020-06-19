@@ -1,12 +1,20 @@
 #!groovy
 
-Random random = new Random() // Randomize which Jenkins version is selected for more testing
-def use_newer_jenkins = random.nextBoolean() // Use newer Jenkins on one build but slightly older on other
+import java.util.Collections
 
-// build recommended configurations
-subsetConfiguration = [ [ jdk: '8',  platform: 'windows', jenkins: null                      ],
-                        [ jdk: '8',  platform: 'linux',   jenkins: !use_newer_jenkins ? '2.176.3' : '2.164.1', javaLevel: '8' ],
-                        [ jdk: '11', platform: 'linux',   jenkins:  use_newer_jenkins ? '2.176.3' : '2.164.1', javaLevel: '8' ]
+// Valid Jenkins versions for test
+def testJenkinsVersions = [ '2.204.1', '2.204.6', '2.222.1', '2.222.4', '2.235', '2.240' ]
+Collections.shuffle(testJenkinsVersions)
+
+// Test plugin compatibility to subset of Jenkins versions
+subsetConfiguration = [ [ jdk: '8',  platform: 'windows', jenkins: testJenkinsVersions[0], javaLevel: '8' ],
+                        [ jdk: '8',  platform: 'linux',   jenkins: testJenkinsVersions[1], javaLevel: '8' ],
+                        [ jdk: '11', platform: 'linux',   jenkins: testJenkinsVersions[2], javaLevel: '8' ]
                       ]
 
 buildPlugin(configurations: subsetConfiguration, failFast: false)
+
+def branchName = "${env.BRANCH_NAME}"
+if (branchName ==~ /master/ || branchName =~ /gsoc-*/) {
+	runBenchmarks('jmh-report.json')
+}
