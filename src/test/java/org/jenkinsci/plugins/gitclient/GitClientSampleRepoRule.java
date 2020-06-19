@@ -93,7 +93,6 @@ public final class GitClientSampleRepoRule extends AbstractSampleDVCSRepoRule {
     public File getRoot() {
         return this.sampleRepo;
     }
-}
 
     public boolean gitVersionAtLeast(int neededMajor, int neededMinor) {
         return gitVersionAtLeast(neededMajor, neededMinor, 0);
