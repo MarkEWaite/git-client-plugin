@@ -37,12 +37,14 @@ import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
 import org.jenkinsci.plugins.gitclient.cgit.GitCommandsExecutor;
+import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.Whitelisted;
 import org.kohsuke.stapler.framework.io.WriterOutputStream;
 
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -63,12 +65,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 
 
 /**
@@ -884,8 +888,30 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 }
 
                 args.add(fastForwardMode);
+                if (rev == null) {
+                    throw new GitException("MergeCommand requires a revision to merge");
+                }
                 args.add(rev.name());
-                launchCommand(args);
+
+                /* See JENKINS-45228 */
+                /* Git merge requires authentication in LFS merges, plugin does not authenticate the git merge command */
+                String defaultRemote = null;
+                try {
+                    defaultRemote = getDefaultRemote();
+                } catch (GitException e) {
+                    /* Nothing to do, just keeping defaultRemote = null */
+                }
+
+                if (defaultRemote != null && !defaultRemote.isEmpty()) {
+                    String repoUrl = getRemoteUrl(defaultRemote);
+                    StandardCredentials cred = credentials.get(repoUrl);
+                    if (cred == null) cred = defaultCredentials;
+                    launchCommandWithCredentials(args, workspace, cred, repoUrl);
+                } else {
+                    /* Merge is allowed even if a remote URL is not defined. */
+                    /* If there is no remote URL, there is no need to use credentials in the merge. */
+                    launchCommand(args);
+                }
             }
         };
     }
@@ -2078,7 +2104,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      */
     private String windowsArgEncodeFileName(String filename) {
         if (filename.contains("\"")) {
-            filename = filename.replaceAll("\"", "^\"");
+            filename = filename.replace("\"", "^\"");
         }
         return "\"" + filename + "\"";
     }
@@ -2089,7 +2115,6 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             // avoid echoing command as part of the password
             w.println("@echo off");
             w.println("type " + windowsArgEncodeFileName(passphrase.getAbsolutePath()));
-            w.flush();
         }
         ssh.setExecutable(true, true);
         return ssh;
@@ -2100,7 +2125,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      */
     private String unixArgEncodeFileName(String filename) {
         if (filename.contains("'")) {
-            filename = filename.replaceAll("'", "\\'");
+            filename = filename.replace("'", "'\\''");
         }
         return "'" + filename + "'";
     }
@@ -2164,7 +2189,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     private String getPathToExe(String userGitExe) {
-        userGitExe = userGitExe.toLowerCase();
+        userGitExe = userGitExe.toLowerCase(Locale.ENGLISH); // Avoid the Turkish 'i' conversion
 
         String cmd;
         String exe;
@@ -2471,6 +2496,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             @Override
             public void execute() throws GitException, InterruptedException {
                 ArgumentListBuilder args = new ArgumentListBuilder();
+                if (remote == null) {
+                    throw new GitException("PushCommand requires a 'remote'");
+                }
                 args.add("push", remote.toPrivateASCIIString());
 
                 if (refspec != null) {
@@ -2664,12 +2692,13 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             private void interruptThisCheckout() throws InterruptedException {
                 final File indexFile = new File(workspace.getPath() + File.separator
                         + INDEX_LOCK_FILE_PATH);
+                boolean created = false;
                 try {
-                    indexFile.createNewFile();
+                    created = indexFile.createNewFile();
                 } catch (IOException ex) {
                     throw new InterruptedException(ex.getMessage());
                 }
-                throw new InterruptedException(interruptMessage);
+                throw new InterruptedException(created ? interruptMessage : (interruptMessage + " " + INDEX_LOCK_FILE_PATH + " not created"));
             }
 
             @Override
@@ -2790,28 +2819,62 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 }
 
                 File sparseCheckoutFile = new File(workspace, SPARSE_CHECKOUT_FILE_PATH);
-                try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(sparseCheckoutFile.toPath()), "UTF-8"))) {
-		    for(String path : paths) {
-			writer.println(path);
-		    }
-                } catch (IOException ex){
-                    throw new GitException("Could not write sparse checkout file " + sparseCheckoutFile.getAbsolutePath(), ex);
+                try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(sparseCheckoutFile.toPath()), StandardCharsets.UTF_8))) {
+                    for (String path : paths) {
+                        writer.println(path);
+                    }
+                } catch (IOException e) {
+                    throw new GitException("Could not write sparse checkout file " + sparseCheckoutFile.getAbsolutePath(), e);
+                }
+
+                if (lfsRemote != null) {
+                    // Currently git-lfs doesn't support commas in "fetchinclude" and "fetchexclude".
+                    // (see https://github.com/git-lfs/git-lfs/issues/2264)
+                    // Therefore selective fetching is disabled in this case.
+                    if (paths.stream().anyMatch(path -> path.contains(","))) {
+                        setLfsFetchOption("lfs.fetchinclude", "");
+                        setLfsFetchOption("lfs.fetchexclude", "");
+                    } else {
+                        String lfsIncludePaths = paths.stream()
+                                .filter(path -> !path.startsWith("!"))
+                                .collect(Collectors.joining(","));
+
+                        String lfsExcludePaths = paths.stream()
+                                .filter(path -> path.startsWith("!"))
+                                .map(path -> path.substring(1))
+                                .collect(Collectors.joining(","));
+
+                        setLfsFetchOption("lfs.fetchinclude", lfsIncludePaths);
+                        setLfsFetchOption("lfs.fetchexclude", lfsExcludePaths);
+                    }
                 }
 
                 try {
                     launchCommand( "read-tree", "-mu", "HEAD" );
-                } catch (GitException ge) {
-                    // Normal return code if sparse checkout path has never exist on the current checkout branch
-                    String normalReturnCode = "128";
-                    if(ge.getMessage().contains(normalReturnCode)) {
-                        listener.getLogger().println(ge.getMessage());
-                    } else {
-                        throw ge;
+                } catch (GitException e) {
+                    // normal return code if sparse checkout path did never exist on the current checkout branch
+                    if (!e.getMessage().contains("returned status code 128:")) {
+                        throw e;
                     }
                 }
 
                 if(deactivatingSparseCheckout) {
                     launchCommand( "config", "core.sparsecheckout", "false" );
+                }
+            }
+
+            private void setLfsFetchOption(String key, String value) throws GitException, InterruptedException {
+                if (value.isEmpty() || value.equals("/*")) {
+                    try {
+                        launchCommand("config", "--unset", key);
+                    } catch (GitException e) {
+                        // normal return code if the option was not set before
+                        if (!e.getMessage().contains("returned status code 5:")) {
+                            throw e;
+                        }
+                    }
+                } else {
+                    launchCommand("config", key, value);
                 }
             }
         };
@@ -2948,6 +3011,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 BufferedReader rdr = new BufferedReader(new StringReader(result));
                 String line;
 
+                if (out == null) {
+                    throw new GitException("RevListCommand requires a value for 'to'");
+                }
                 try {
                     while ((line = rdr.readLine()) != null) {
                         // Add the SHA1
@@ -3096,6 +3162,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * @return a {@link org.eclipse.jgit.lib.Repository} object.
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      */
+    @SuppressFBWarnings(value = "BC_UNCONFIRMED_CAST_OF_RETURN_VALUE",
+                        justification = "JGit interaction with spotbugs")
     @NonNull
     @Override
     public Repository getRepository() throws GitException {
@@ -3138,7 +3206,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 tags.add(tag.replaceFirst(".*refs/tags/", ""));
             }
             return tags;
-        } catch (Exception e) {
+        } catch (GitException | IOException | InterruptedException e) {
             throw new GitException("Error retrieving remote tag names", e);
         }
     }
@@ -3160,7 +3228,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 tags.add(tag);
             }
             return tags;
-        } catch (Exception e) {
+        } catch (GitException | IOException | InterruptedException e) {
             throw new GitException("Error retrieving tag names", e);
         }
     }
@@ -3456,6 +3524,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * We run git as an external process so can't guarantee it won't hang for whatever reason. Even though the plugin does its
      * best to avoid git interactively asking for credentials, there are many of other cases where git may hang.
      */
+    @Whitelisted
     public static final int TIMEOUT = Integer.getInteger(Git.class.getName() + ".timeOut", 10);
 
     /** inline ${@link hudson.Functions#isWindows()} to prevent a transient remote classloader issue */
