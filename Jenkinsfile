@@ -2,6 +2,8 @@
 
 import java.util.Collections
 
+echo "Branch name is ${env.BRANCH_NAME}"
+
 // Valid Jenkins versions for test
 def testJenkinsVersions = [ '2.204.1', '2.204.6', '2.222.1', '2.222.4', '2.235', '2.240' ]
 Collections.shuffle(testJenkinsVersions)
@@ -15,7 +17,7 @@ subsetConfiguration = [ [ jdk: '8',  platform: 'windows', jenkins: testJenkinsVe
 buildPlugin(configurations: subsetConfiguration, failFast: false)
 
 def branchName = "${env.BRANCH_NAME}"
-echo "${env.BRANCH_NAME}"
+echo "Branch name is ${env.BRANCH_NAME}"
 if (branchName ==~ /master/ || branchName =~ /gsoc-*/) {
 	runBenchmarks('jmh-report.json')
 }
