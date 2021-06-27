@@ -57,6 +57,7 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
 import java.text.MessageFormat;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Arrays;
@@ -69,6 +70,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -195,6 +197,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private StandardCredentials defaultCredentials;
     private StandardCredentials lfsCredentials;
     private final String encoding;
+
+    /* If we fail some helper tool (e.g. SELinux chcon) do not make noise
+     * until actually git fails. Use a TreeMap to sort by keys (timestamp).
+     */
+    private Map<Instant, String> failureClues = new TreeMap<>();
 
     /* git config --get-regex applies the regex to match keys, and returns all matches (including substring matches).
      * Thus, a config call:
@@ -331,7 +338,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /**
-     * hasGitRepo.
+     * Returns true if this workspace has a git repository.
+     * Also returns true if this workspace contains an empty .git directory and
+     * a parent directory has a git repository.
      *
      * @return true if this workspace has a git repository
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
@@ -343,6 +352,35 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             // Check if this is a valid git repo with --is-inside-work-tree
             try {
                 launchCommand("rev-parse", "--is-inside-work-tree");
+            } catch (Exception ex) {
+                ex.printStackTrace(listener.error("Workspace has a .git repository, but it appears to be corrupt."));
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if this workspace has a git repository.
+     * If checkParentDirectories is true, searches parent directories.
+     * If checkParentDirectories is false, checks workspace directory only.
+     *
+     * @param checkParentDirectories if true, search upward for a git repository
+     * @return true if this workspace has a git repository
+     * @throws hudson.plugins.git.GitException if underlying git operation fails.
+     * @throws java.lang.InterruptedException if interrupted.
+     */
+    @Override
+    public boolean hasGitRepo(boolean checkParentDirectories) throws GitException, InterruptedException {
+        if (checkParentDirectories) {
+            return hasGitRepo();
+        }
+        if (hasGitRepo(".git")) {
+            // Check if this is a valid git repo with --resolve-git-dir
+            try {
+                launchCommand("rev-parse", "--resolve-git-dir",
+                        workspace.getAbsolutePath() + File.separator + ".git");
             } catch (Exception ex) {
                 ex.printStackTrace(listener.error("Workspace has a .git repository, but it appears to be corrupt."));
                 return false;
@@ -2225,7 +2263,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             int status = -1;
             String stdout = "";
             String stderr = "";
-            String command = gitExe + " " + StringUtils.join(args.toCommandArray(), " ");
+            String command = StringUtils.join(args.toCommandArray(), " ");
 
             try {
                 // JENKINS-13356: capture stdout and stderr separately
@@ -2240,18 +2278,33 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 stdout = stdoutStream.toString(encoding);
                 stderr = stderrStream.toString(encoding);
             } catch (Throwable e) {
+                /* Simple erroneous non-zero exit code does not get here.
+                 * True exceptions are better handled (reported) ASAP, without
+                 * caching into failureClues like the noisy log further below.
+                 */
                 listener.getLogger().println("Error performing chcon helper command for SELinux: " + command + " :\n" + e.toString());
                 if (status <= 0) { status = 126; } // cause the message and false return below
             }
             if (status > 0) {
-                listener.getLogger().println("[WARNING] Failed (" + status + ") performing chcon helper command for SELinux: " + command + ":\n" +
+                failureClues.put(Instant.now(),
+                    "[WARNING] Failed (" + status + ") performing chcon helper command for SELinux:\n >>> " + command + "\n" +
                     (stdout.equals("") ? "" : ( "=== STDOUT:\n" + stdout + "\n====\n" )) +
                     (stderr.equals("") ? "" : ( "=== STDERR:\n" + stderr + "\n====\n" )) +
-                    "IMPACT: if SELinux is enabled, access to temporary key file may be denied for git+ssh below");
+                    "IMPACT: if SELinux is enabled, access to temporary key file may be denied for git+ssh later");
                 return false;
             }
         }
         return true;
+    }
+
+    private void reportFailureClues() {
+        if (!failureClues.isEmpty()) {
+            listener.getLogger().println("ERROR: Git command failed, and previous operations logged the following error details:");
+            for (Map.Entry<Instant, String> entry : failureClues.entrySet()) {
+                listener.getLogger().println("[" + entry.getKey().toString() + "]" + entry.getValue() + "\n");
+            }
+            failureClues = new TreeMap(); // Flush to collect new errors and not report twice
+        }
     }
 
     private File createSshKeyFile(SSHUserPrivateKey sshUser) throws IOException, InterruptedException {
@@ -2652,6 +2705,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         } catch (GitException | InterruptedException e) {
             throw e;
         } catch (Throwable e) {
+            reportFailureClues();
             throw new GitException("Error performing git command: " + command, e);
         }
     }
