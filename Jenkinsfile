@@ -1,20 +1,22 @@
 #!groovy
 
-import java.util.Collections
+buildPlugin(failFast: false)
 
-// Valid Jenkins versions for test
-def testJenkinsVersions = [ '2.204.1', '2.204.6', '2.222.1', '2.222.4', '2.235', '2.240' ]
-Collections.shuffle(testJenkinsVersions)
+// Return true if benchmarks should be run
+// Benchmarks run if any of the most recent 3 commits includes the word 'benchmark'
+boolean shouldRunBenchmarks(String branchName) {
+    // Disable benchmarks on master branch for speed
+    // if (branchName.endsWith('master')) { // accept both origin/master and master
+    //     return true;
+    // }
+    def recentCommitMessages
+    node('linux') {
+        checkout scm
+        recentCommitMessages = sh(script: 'git log -n 3', returnStdout: true)
+    }
+    return recentCommitMessages =~ /.*[Bb]enchmark.*/
+}
 
-// Test plugin compatibility to subset of Jenkins versions
-subsetConfiguration = [ [ jdk: '8',  platform: 'windows', jenkins: testJenkinsVersions[0], javaLevel: '8' ],
-                        [ jdk: '8',  platform: 'linux',   jenkins: testJenkinsVersions[1], javaLevel: '8' ],
-                        [ jdk: '11', platform: 'linux',   jenkins: testJenkinsVersions[2], javaLevel: '8' ]
-                      ]
-
-buildPlugin(configurations: subsetConfiguration, failFast: false)
-
-def branchName = "${env.BRANCH_NAME}"
-if (branchName ==~ /master/ || branchName =~ /gsoc-*/) {
-	runBenchmarks('jmh-report.json')
+if (shouldRunBenchmarks(env.BRANCH_NAME)) {
+    runBenchmarks('jmh-report.json')
 }
