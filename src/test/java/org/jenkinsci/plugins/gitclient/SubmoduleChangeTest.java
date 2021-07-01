@@ -21,7 +21,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
-import org.junit.BeforeClass;
 import org.junit.rules.TemporaryFolder;
 
 /**
@@ -56,13 +55,6 @@ public class SubmoduleChangeTest {
 
     public static String createID() {
         return String.valueOf(COUNTER.getAndIncrement());
-    }
-
-    @BeforeClass
-    public static void setCliGitDefaults() throws Exception {
-        /* Command line git commands fail unless certain default values are set */
-        CliGitCommand gitCmd = new CliGitCommand(null);
-        gitCmd.setDefaults();
     }
 
     @Before
