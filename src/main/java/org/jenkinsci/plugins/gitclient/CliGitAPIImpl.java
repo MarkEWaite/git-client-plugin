@@ -2001,6 +2001,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     		@NonNull URIish url) throws GitException, InterruptedException {
     	return launchCommandWithCredentials(args, workDir, credentials, url, TIMEOUT);
     }
+
     private String launchCommandWithCredentials(ArgumentListBuilder args, File workDir,
                                                 StandardCredentials credentials,
                                                 @NonNull URIish url,
@@ -3363,6 +3364,16 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     @Override
     public void addCredentials(String url, StandardCredentials credentials) {
         this.credentials.put(url, credentials);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<StandardCredentials> getCredentials() {
+        List<StandardCredentials> combined = new ArrayList<>(credentials.values());
+        if (defaultCredentials != null) {
+            combined.add(defaultCredentials);
+        }
+        return combined;
     }
 
     /**

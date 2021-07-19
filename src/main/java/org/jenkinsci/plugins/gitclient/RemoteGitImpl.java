@@ -202,6 +202,11 @@ class RemoteGitImpl implements GitClient, hudson.plugins.git.IGitAPI, Serializab
     }
 
     /** {@inheritDoc} */
+    public List<StandardCredentials> getCredentials() {
+        return proxy.getCredentials();
+    }
+
+    /** {@inheritDoc} */
     public void setCredentials(StandardUsernameCredentials cred) {
         proxy.setCredentials(CredentialsProvider.snapshot(StandardUsernameCredentials.class, cred)); // credentials are Serializable
     }
