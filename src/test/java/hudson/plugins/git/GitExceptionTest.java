@@ -8,17 +8,16 @@ import hudson.model.TaskListener;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import static java.nio.file.StandardOpenOption.APPEND;
 
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.JGitInternalException;
 
 import org.junit.Rule;
 import org.junit.Test;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.*;
 import org.junit.rules.TemporaryFolder;
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
@@ -59,54 +58,50 @@ public class GitExceptionTest {
     }
 
     @Test
-    public void initCliImplThrowsGitException() throws GitAPIException, IOException, InterruptedException {
+    public void initCliImplThrowsGitException() throws IOException, InterruptedException {
+        if (new File("/").canWrite()) { // running as root?
+            return;
+        }
         String fileName = isWindows() ? "\\\\badserver\\badshare\\bad\\dir" : "/this/is/a/bad/dir";
         final File badDirectory = new File(fileName);
-        assumeFalse("running as root?", new File("/").canWrite());
         GitClient defaultClient = Git.with(TaskListener.NULL, new EnvVars()).in(badDirectory).using("git").getClient();
         assertNotNull(defaultClient);
         assertThrows(GitException.class,
-                     () -> {
-                         defaultClient.init_().workspace(badDirectory.getAbsolutePath()).execute();
-                     });
+                     () -> defaultClient.init_().workspace(badDirectory.getAbsolutePath()).execute());
     }
 
     @Test
-    public void initJGitImplThrowsGitException() throws GitAPIException, IOException, InterruptedException {
+    public void initJGitImplThrowsGitException() throws IOException, InterruptedException {
+        if (new File("/").canWrite()) { // running as root?
+            return;
+        }
         String fileName = isWindows() ? "\\\\badserver\\badshare\\bad\\dir" : "/this/is/a/bad/dir";
         final File badDirectory = new File(fileName);
-        assumeFalse("running as root?", new File("/").canWrite());
         GitClient defaultClient = Git.with(TaskListener.NULL, new EnvVars()).in(badDirectory).using("jgit").getClient();
         assertNotNull(defaultClient);
         JGitInternalException e = assertThrows(JGitInternalException.class,
-                                               () -> {
-                                                   defaultClient.init_().workspace(badDirectory.getAbsolutePath()).execute();
-                                               });
+                                               () -> defaultClient.init_().workspace(badDirectory.getAbsolutePath()).execute());
         assertThat(e.getCause(), isA(IOException.class));
     }
 
     @Test
-    public void initCliImplCollisionThrowsGitException() throws GitAPIException, IOException, InterruptedException {
+    public void initCliImplCollisionThrowsGitException() throws IOException, InterruptedException {
         File dir = folder.getRoot();
         File dotGit = folder.newFile(".git");
-        Files.write(dotGit.toPath(), "file named .git".getBytes("UTF-8"), APPEND);
+        Files.write(dotGit.toPath(), "file named .git".getBytes(StandardCharsets.UTF_8), APPEND);
         GitClient defaultClient = Git.with(TaskListener.NULL, new EnvVars()).in(dir).using("git").getClient();
         assertThrows(GitException.class,
-                     () -> {
-                         defaultClient.init_().workspace(dir.getAbsolutePath()).execute();
-                     });
+                     () -> defaultClient.init_().workspace(dir.getAbsolutePath()).execute());
     }
 
     @Test
-    public void initJGitImplCollisionThrowsGitException() throws GitAPIException, IOException, InterruptedException {
+    public void initJGitImplCollisionThrowsGitException() throws IOException, InterruptedException {
         File dir = folder.getRoot();
         File dotGit = folder.newFile(".git");
-        Files.write(dotGit.toPath(), "file named .git".getBytes("UTF-8"), APPEND);
+        Files.write(dotGit.toPath(), "file named .git".getBytes(StandardCharsets.UTF_8), APPEND);
         GitClient defaultClient = Git.with(TaskListener.NULL, new EnvVars()).in(dir).using("jgit").getClient();
         JGitInternalException e = assertThrows(JGitInternalException.class,
-                                               () -> {
-                                                   defaultClient.init_().workspace(dir.getAbsolutePath()).execute();
-                                               });
+                                               () -> defaultClient.init_().workspace(dir.getAbsolutePath()).execute());
         assertThat(e.getCause(), isA(IOException.class));
     }
 

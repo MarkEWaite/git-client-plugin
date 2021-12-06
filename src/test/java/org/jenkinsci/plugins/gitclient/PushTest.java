@@ -2,7 +2,6 @@ package org.jenkinsci.plugins.gitclient;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -87,28 +86,24 @@ public class PushTest {
     }
 
     @Test
-    public void push() throws IOException, GitException, InterruptedException, URISyntaxException {
+    public void push() throws IOException, GitException, InterruptedException {
         checkoutBranchAndCommitFile();
 
         if (expectedException != null) {
             assertThrows(expectedException,
-                         () -> {
-                             workingGitClient.push().to(bareURI).ref(refSpec).execute();
-                         });
+                         () -> workingGitClient.push().to(bareURI).ref(refSpec).execute());
         } else {
             workingGitClient.push().to(bareURI).ref(refSpec).execute();
         }
     }
 
     @Test
-    public void pushNonFastForwardForce() throws IOException, GitException, InterruptedException, URISyntaxException {
+    public void pushNonFastForwardForce() throws IOException, GitException, InterruptedException {
         checkoutOldBranchAndCommitFile();
 
         if (expectedException != null) {
             assertThrows(expectedException,
-                         () -> {
-                             workingGitClient.push().to(bareURI).ref(refSpec).force(true).execute();
-                         });
+                         () -> workingGitClient.push().to(bareURI).ref(refSpec).force(true).execute());
         } else {
             workingGitClient.push().to(bareURI).ref(refSpec).force(true).execute();
         }
@@ -156,7 +151,7 @@ public class PushTest {
     }
 
     @Before
-    public void createWorkingRepository() throws IOException, InterruptedException, URISyntaxException {
+    public void createWorkingRepository() throws IOException, InterruptedException {
         hudson.EnvVars env = new hudson.EnvVars();
         TaskListener listener = StreamTaskListener.fromStderr();
         List<RefSpec> refSpecs = new ArrayList<>();
@@ -177,10 +172,13 @@ public class PushTest {
         ObjectId workingHead = workingGitClient.getHeadRev(workingRepo.getAbsolutePath(), branchName);
         ObjectId bareHead = bareGitClient.getHeadRev(bareRepo.getAbsolutePath(), branchName);
         assertEquals("Initial checkout of " + branchName + " has different HEAD than bare repo", bareHead, workingHead);
+        CliGitCommand gitCmd = new CliGitCommand(workingGitClient);
+        gitCmd.run("config", "user.name", "Vojtěch PushTest working repo Zweibrücken-Šafařík");
+        gitCmd.run("config", "user.email", "email.from.git.client@example.com");
     }
 
     @After
-    public void verifyPushResultAndDeleteDirectory() throws GitException, InterruptedException, IOException {
+    public void verifyPushResultAndDeleteDirectory() throws GitException, InterruptedException {
         /* Confirm push reached bare repo */
         if (expectedException == null && !name.getMethodName().contains("Throws")) {
             ObjectId latestBareHead = bareGitClient.getHeadRev(bareRepo.getAbsolutePath(), branchName);
@@ -192,10 +190,6 @@ public class PushTest {
 
     @BeforeClass
     public static void createBareRepository() throws Exception {
-        /* Command line git commands fail unless certain default values are set */
-        CliGitCommand gitCmd = new CliGitCommand(null);
-        gitCmd.setDefaults();
-
         /* Randomly choose git implementation to create bare repository */
         final String[] gitImplementations = {"git", "jgit"};
         Random random = new Random();
@@ -216,6 +210,9 @@ public class PushTest {
                 .url(bareRepo.getAbsolutePath())
                 .repositoryName("origin")
                 .execute();
+        CliGitCommand gitCmd = new CliGitCommand(cloneGitClient);
+        gitCmd.run("config", "user.name", "Vojtěch PushTest Zweibrücken-Šafařík");
+        gitCmd.run("config", "user.email", "email.from.git.client@example.com");
 
         for (String branchName : BRANCH_NAMES) {
             /* Add a file with random content to the current branch of working repo */

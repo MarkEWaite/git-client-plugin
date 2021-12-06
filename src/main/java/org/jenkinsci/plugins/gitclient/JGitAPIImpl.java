@@ -29,19 +29,21 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.time.FastDateFormat;
@@ -78,7 +80,6 @@ import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefDatabase;
 import org.eclipse.jgit.lib.RefUpdate;
-import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.eclipse.jgit.lib.StoredConfig;
@@ -93,8 +94,8 @@ import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.filter.MaxCountRevFilter;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.submodule.SubmoduleWalk;
-import org.eclipse.jgit.transport.BasePackFetchConnection;
 import org.eclipse.jgit.transport.CredentialsProvider;
 import org.eclipse.jgit.transport.FetchConnection;
 import org.eclipse.jgit.transport.HttpTransport;
@@ -113,19 +114,12 @@ import org.jenkinsci.plugins.gitclient.trilead.SmartCredentialsProvider;
 import org.jenkinsci.plugins.gitclient.trilead.TrileadSessionFactory;
 
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
-import com.google.common.base.Functions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.plugins.git.GitObject;
 import org.eclipse.jgit.api.RebaseCommand.Operation;
 import org.eclipse.jgit.api.RebaseResult;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * GitClient pure Java implementation using JGit.
@@ -206,6 +200,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      *
      * @param prov a {@link org.eclipse.jgit.transport.CredentialsProvider} object.
      */
+    @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Included in JGitAPIImpl interface definition")
     public synchronized void setCredentialsProvider(CredentialsProvider prov) {
         this.provider = prov;
     }
@@ -284,7 +279,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
             @Override
             public CheckoutCommand sparseCheckoutPaths(List<String> sparseCheckoutPaths) {
-                this.sparseCheckoutPaths = sparseCheckoutPaths == null ? Collections.<String>emptyList() : sparseCheckoutPaths;
+                this.sparseCheckoutPaths = sparseCheckoutPaths == null ? Collections.emptyList() : sparseCheckoutPaths;
                 return this;
             }
 
@@ -310,7 +305,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
 
                 if(! sparseCheckoutPaths.isEmpty()) {
                     listener.getLogger().println("[ERROR] JGit doesn't support sparse checkout.");
@@ -608,7 +603,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 try (Repository repo = getRepository()) {
                     Git git = git(repo);
 
@@ -807,7 +802,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     @Override
-    @SuppressFBWarnings(value = "RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE", justification = "Java 11 spotbugs error")
     public Map<String, String> getRemoteSymbolicReferences(String url, String pattern)
             throws GitException, InterruptedException {
         Map<String, String> references = new HashMap<>();
@@ -819,54 +813,27 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return references;
         }
         try (Repository repo = openDummyRepository()) {
-            try {
-                // HACK HACK HACK
-                // The symref info is advertised as a capability starting from git 1.8.5
-                // So all we need to do is ask JGit to fetch the refs and then (because JGit adds all capabilities
-                // into a Set) we iterate the resulting set to find any that matching symref=$symref:$realref
-                // of course JGit does not expose a way to iterate the capabilities, so instead we have to hack
-                // and peek inside
-                // TODO if JGit implement https://bugs.eclipse.org/bugs/show_bug.cgi?id=514052 we should switch to that
-                Class<?> basePackConnection = BasePackFetchConnection.class.getSuperclass();
-                Field remoteCapablities = basePackConnection.getDeclaredField("remoteCapablities");
-                remoteCapablities.setAccessible(true);
-                try (Transport transport = Transport.open(repo, url)) {
-                    transport.setCredentialsProvider(getProvider());
-                    try (FetchConnection fc = transport.openFetch()) {
-                        fc.getRefs();
-                        if (fc instanceof BasePackFetchConnection) {
-                            Object o = remoteCapablities.get(fc);
-                            if (o instanceof Set) {
-                                boolean hackWorked = false;
-                                @SuppressWarnings("unchecked") /* compile-time type erasure causes this */
-                                Set<String> capabilities = (Set<String>)o;
-                                for (String capability: capabilities) {
-                                    if (capability.startsWith("symref=")) {
-                                        hackWorked = true;
-                                        int index = capability.indexOf(':', 7);
-                                        if (index != -1) {
-                                            references.put(capability.substring(7, index), capability.substring(index+1));
-                                        }
-                                    }
-                                }
-                                if (hackWorked) {
-                                    return references;
-                                }
-                            }
-                        }
-                    }
-                    // ignore this is a total hack
+            LsRemoteCommand lsRemote = new LsRemoteCommand(repo);
+            lsRemote.setRemote(url);
+            lsRemote.setCredentialsProvider(getProvider());
+            Collection<Ref> refs = lsRemote.call();
+            for (final Ref r : refs) {
+                if (!r.isSymbolic()) { // Skip reference if it is not symbolic
+                    continue;
                 }
-            } catch (IllegalAccessException | NoSuchFieldException e) {
-                // ignore, caller will just have to try it the Git 1.8.4 way, we'll return an empty map
+                if (regexPattern == null) {
+                    references.put(r.getName(), r.getTarget().getName());
+                } else if (r.getName().matches(regexPattern)) {
+                    references.put(r.getName(), r.getTarget().getName());
+                } // else do not return symbolic references with names that do not match pattern
             }
-        } catch (IOException | URISyntaxException e) {
+        } catch (GitAPIException | IOException e) {
             throw new GitException(e);
         }
         return references;
     }
 
-    /* Adapted from http://stackoverflow.com/questions/1247772/is-there-an-equivalent-of-java-util-regex-for-glob-type-patterns */
+    /* Adapted from https://stackoverflow.com/questions/1247772/is-there-an-equivalent-of-java-util-regex-for-glob-type-patterns */
     private String createRefRegexFromGlob(String glob)
     {
         StringBuilder out = new StringBuilder();
@@ -987,12 +954,11 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     /** {@inheritDoc} */
     @Override
-    public void addRemoteUrl(String name, String url) throws GitException, InterruptedException {
+    public void addRemoteUrl(String name, String url) throws GitException {
         try (Repository repo = getRepository()) {
             StoredConfig config = repo.getConfig();
 
-            List<String> urls = new ArrayList<>();
-            urls.addAll(Arrays.asList(config.getStringList("remote", name, "url")));
+            List<String> urls = new ArrayList<>(Arrays.asList(config.getStringList("remote", name, "url")));
             urls.add(url);
 
             config.setStringList("remote", name, "url", urls);
@@ -1058,7 +1024,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     StringWriter sw = new StringWriter();
                     IOUtils.copy(new InputStreamReader(ol.openStream(), UTF_8),sw);
                     sw.write("\n");
-                    addNote(sw.toString() + normalizeNote(note), namespace);
+                    addNote(sw + normalizeNote(note), namespace);
                 }
             }
         } catch (GitAPIException | IOException e) {
@@ -1152,7 +1118,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
              * files will remain open.
              */
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 if (out == null) {
                     throw new IllegalStateException(); // Match CliGitAPIImpl
                 }
@@ -1409,7 +1375,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 Repository repository = null;
 
                 try {
@@ -1489,7 +1455,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
                     StoredConfig config = repository.getConfig();
                     config.setString("remote", remote, "url", url);
-                    config.setStringList("remote", remote, "fetch", Lists.newArrayList(Iterables.transform(refspecs, Functions.toStringFunction())));
+                    config.setStringList("remote", remote, "fetch", refspecs.stream().map(Object::toString).collect(Collectors.toList()));
                     config.save();
 
                 } catch (GitAPIException | IOException e) {
@@ -1578,7 +1544,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 try (Repository repo = getRepository()) {
                     Git git = git(repo);
                     MergeResult mergeResult;
@@ -1621,7 +1587,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 doInit(workspace, bare);
             }
         };
@@ -1639,7 +1605,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 try (Repository repo = getRepository()) {
                     Git git = git(repo);
                     RebaseResult rebaseResult = git.rebase().setUpstream(upstream).call();
@@ -1751,7 +1717,8 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /**
-     * hasGitRepo.
+     * Returns true if the current workspace has a git repository.
+     * Does not search parent directories for a repository.
      *
      * @return true if this workspace has a git repository
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
@@ -1762,6 +1729,48 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return repo.getObjectDatabase().exists();
         } catch (GitException e) {
             return false;
+        }
+    }
+
+    /**
+     * Returns true if the current workspace has a git repository.
+     * If checkParentDirectories is true, searches parent directories.
+     * If checkParentDirectories is false, checks workspace directory only.
+     *
+     * @param checkParentDirectories if true, search upwards for a git repository
+     * @return true if this workspace has a git repository
+     * @throws hudson.plugins.git.GitException if underlying git operation fails.
+     */
+    @Override
+    public boolean hasGitRepo(boolean checkParentDirectories) throws GitException {
+        if (!checkParentDirectories) { // JGit hasGitRepo() does not check parent directories
+            return hasGitRepo();
+        }
+        if (hasGitRepo(".git")) {
+            try (Repository repo = getRepository()) {
+                if (repo.getObjectDatabase().exists()) {
+                    return true;
+                }
+                /* Emulate command line git searching up the file system hierarchy */
+                FileRepositoryBuilder repositoryBuilder = new FileRepositoryBuilder();
+                FileRepositoryBuilder parentRepoBuilder = repositoryBuilder.findGitDir(workspace);
+                return parentRepoBuilder.getGitDir() != null;
+            } catch (GitException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasGitRepo(String gitDirectory) throws GitException {
+        try {
+            File dotGit = new File(workspace, gitDirectory);
+            return dotGit.exists();
+        } catch (SecurityException ex) {
+            throw new GitException("Security error when trying to check for .git. Are you sure you have correct permissions?",
+                                   ex);
+        } catch (Exception e) {
+            throw new GitException("Couldn't check for .git", e);
         }
     }
 
@@ -1868,7 +1877,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 try (Repository repo = getRepository()) {
                     RefSpec ref = (refspec != null) ? new RefSpec(fixRefSpec(refspec, repo)) : Transport.REFSPEC_PUSH_ALL;
                     listener.getLogger().println("RefSpec is \""+ref+"\".");
@@ -1929,7 +1938,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                                 }
                                 specs[spec] = ref.getTarget().getName();
                                 break;
-                            case 1: //for the target ref. we can't use the repository, so we try our best to determine the ref. (see http://git.661346.n2.nabble.com/JGit-Push-to-new-Amazon-S3-does-not-work-quot-funny-refname-quot-td2441026.html)
+                            case 1: //for the target ref. we can't use the repository, so we try our best to determine the ref.
                                 if (!specs[spec].startsWith("/")) {
                                     specs[spec] = "/" + specs[spec];
                                 }
@@ -2002,7 +2011,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
 
             @Override
-            public void execute() throws GitException, InterruptedException {
+            public void execute() throws GitException {
                 if (firstParent) {
                   throw new UnsupportedOperationException("not implemented yet");
                 }
@@ -2260,7 +2269,8 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     update.call();
                     if (recursive) {
                         for (JGitAPIImpl sub : submodules()) {
-                            sub.submoduleUpdate().recursive(recursive).execute();
+                            /* Intentionally using the deprecated method because the replacement method is not serializable. */
+                            sub.submoduleUpdate(recursive);
                         }
                     }
                 } catch (IOException | GitAPIException e) {
@@ -2405,7 +2415,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     /** {@inheritDoc} */
     @Deprecated
     @Override
-    public ObjectId mergeBase(ObjectId id1, ObjectId id2) throws InterruptedException {
+    public ObjectId mergeBase(ObjectId id1, ObjectId id2) {
         try (Repository repo = getRepository();
              ObjectReader or = repo.newObjectReader();
              RevWalk walk = new RevWalk(or)) {
@@ -2426,7 +2436,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     /** {@inheritDoc} */
     @Deprecated
     @Override
-    public String getAllLogEntries(String branch) throws InterruptedException {
+    public String getAllLogEntries(String branch) {
         try (Repository repo = getRepository();
              ObjectReader or = repo.newObjectReader();
              RevWalk walk = new RevWalk(or)) {
@@ -2447,7 +2457,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * Adds all the refs as start commits.
      */
     private void markAllRefs(RevWalk walk) throws IOException {
-        markRefs(walk, Predicates.<Ref>alwaysTrue());
+        markRefs(walk, unused -> true);
     }
 
     /**
@@ -2456,7 +2466,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     private void markRefs(RevWalk walk, Predicate<Ref> filter) throws IOException {
         try (Repository repo = getRepository()) {
             for (Ref r : repo.getAllRefs().values()) {
-                if (filter.apply(r)) {
+                if (filter.test(r)) {
                     RevCommit c = walk.parseCommit(r.getObjectId());
                     walk.markStart(c);
                 }
@@ -2484,11 +2494,10 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * submoduleSync.
      *
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
-     * @throws java.lang.InterruptedException if interrupted.
      */
     @Deprecated
     @Override
-    public void submoduleSync() throws GitException, InterruptedException {
+    public void submoduleSync() throws GitException {
         try (Repository repo = getRepository()) {
             git(repo).submoduleSync().call();
         } catch (GitAPIException e) {
@@ -2511,7 +2520,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     /** {@inheritDoc} */
     @Deprecated
     @Override
-    public void setSubmoduleUrl(String name, String url) throws GitException, InterruptedException {
+    public void setSubmoduleUrl(String name, String url) throws GitException {
         try (Repository repo = getRepository()) {
             StoredConfig config = repo.getConfig();
             config.setString("submodule", name, "url", url);
@@ -2685,7 +2694,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 throw new GitException("No tags can describe "+tip);
 
             // if all the nodes are dominated by all the tags, the walk stops
-            Collections.sort(candidates, (Candidate o1, Candidate o2) -> o1.depth-o2.depth);
+            candidates.sort(Comparator.comparingInt((Candidate o) -> o.depth));
 
             return candidates.get(0).describe(tipId);
         } catch (IOException e) {
@@ -2768,7 +2777,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public String getDefaultRemote(String _default_) throws GitException, InterruptedException {
         Set<String> remotes = getConfig(null).getSubsections("remote");
         if (remotes.contains(_default_))    return _default_;
-        else    return com.google.common.collect.Iterables.getFirst(remotes, null);
+        else    return remotes.stream().findFirst().orElse(null);
     }
 
     /** {@inheritDoc} */
@@ -2807,7 +2816,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
 
     /** {@inheritDoc} */
     @Override
-    public Set<GitObject> getTags() throws GitException, InterruptedException {
+    public Set<GitObject> getTags() throws GitException {
         Set<GitObject> peeledTags = new HashSet<>();
         Set<String> tagNames = new HashSet<>();
         try (Repository repo = getRepository()) {
