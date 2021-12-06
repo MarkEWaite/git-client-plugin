@@ -1,5 +1,7 @@
 package hudson.plugins.git;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.init.Initializer;
@@ -62,6 +64,7 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
         return getHome();
     }
 
+    @SuppressFBWarnings(value = "DCN_NULLPOINTER_EXCEPTION", justification = "Historical check (2013)")
     private static GitTool[] getInstallations(DescriptorImpl descriptor) {
         GitTool[] installations;
         try {
@@ -94,7 +97,7 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
         }
     }
 
-    public GitTool forNode(Node node, TaskListener log) throws IOException, InterruptedException {
+    public GitTool forNode(@NonNull Node node, TaskListener log) throws IOException, InterruptedException {
         return new GitTool(getName(), translateFor(node, log), Collections.emptyList());
     }
 
@@ -127,7 +130,7 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
 
         String defaultGitExe = isWindows() ? "git.exe" : "git";
         GitTool tool = new GitTool(DEFAULT, defaultGitExe, Collections.emptyList());
-        descriptor.setInstallations(new GitTool[] { tool });
+        descriptor.setInstallations(tool);
         descriptor.save();
     }
 
@@ -140,13 +143,14 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
             load();
         }
 
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Git";
         }
 
         @Override
-        public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
+        public boolean configure(StaplerRequest req, JSONObject json) {
             setInstallations(req.bindJSONToList(clazz, json.get("tool")).toArray(new GitTool[0]));
             save();
             return true;

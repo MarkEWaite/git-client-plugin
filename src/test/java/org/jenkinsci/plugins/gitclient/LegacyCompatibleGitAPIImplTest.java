@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -23,6 +24,7 @@ import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
 import static org.junit.Assert.*;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -40,12 +42,32 @@ public class LegacyCompatibleGitAPIImplTest {
     private final ObjectId gitClientCommit = ObjectId.fromString("d771d97f1e126b1b01ea214ef245d2d5f432200e");
     private final ObjectId taggedCommit = ObjectId.fromString("2db88a20bba8e98b6710f06213f3b60940a63c7c");
 
-    private static final String DEFAULT_BRANCH_NAME = "master";
+    private static String defaultBranchName = "mast" + "er"; // Intentionally split string
 
     protected String gitImpl;
 
     public LegacyCompatibleGitAPIImplTest() {
         gitImpl = "git";
+    }
+
+    /**
+     * Determine the global default branch name.
+     * Command line git is moving towards more inclusive naming.
+     * Git 2.32.0 honors the configuration variable `init.defaultBranch` and uses it for the name of the initial branch.
+     * This method reads the global configuration and uses it to set the value of `defaultBranchName`.
+     */
+    @BeforeClass
+    public static void computeDefaultBranchName() throws Exception {
+        File configDir = Files.createTempDirectory("readGitConfig").toFile();
+        CliGitCommand getDefaultBranchNameCmd = new CliGitCommand(Git.with(TaskListener.NULL, new hudson.EnvVars()).in(configDir).using("git").getClient());
+        String[] output = getDefaultBranchNameCmd.runWithoutAssert("config", "--global", "--get", "init.defaultBranch");
+        for (String s : output) {
+            String result = s.trim();
+            if (result != null && !result.isEmpty()) {
+                defaultBranchName = result;
+            }
+        }
+        assertTrue("Failed to delete temporary readGitConfig directory", configDir.delete());
     }
 
     @Before
@@ -143,7 +165,7 @@ public class LegacyCompatibleGitAPIImplTest {
     }
 
     private File commitTrackedFile() throws IOException, GitException, InterruptedException {
-        File trackedFile = touch("tracked-file", "tracked content " + UUID.randomUUID().toString());
+        File trackedFile = touch("tracked-file", "tracked content " + UUID.randomUUID());
         git.add("tracked-file");
         git.commit("First commit");
         assertEquals(trackedFile.getParentFile(), repo); /* Is tracked file in correct directory */
@@ -155,17 +177,14 @@ public class LegacyCompatibleGitAPIImplTest {
     @Deprecated
     public void testShowRevisionThrowsGitException() throws Exception {
         File trackedFile = commitTrackedFile();
-        assertThrows(GitException.class,
-                     () -> {
-                         git.showRevision(new Revision(gitClientCommit));
-                     });
+        assertThrows(GitException.class, () -> git.showRevision(new Revision(gitClientCommit)));
     }
 
     @Test
     @Deprecated
     public void testShowRevisionTrackedFile() throws Exception {
         File trackedFile = commitTrackedFile();
-        ObjectId head = git.getHeadRev(repo.getPath(), DEFAULT_BRANCH_NAME);
+        ObjectId head = git.getHeadRev(repo.getPath(), defaultBranchName);
         List<String> revisions = git.showRevision(new Revision(head));
         assertEquals("commit " + head.name(), revisions.get(0));
     }
@@ -198,7 +217,7 @@ public class LegacyCompatibleGitAPIImplTest {
     public void testGetTagsOnCommit() throws Exception {
         LegacyCompatibleGitAPIImpl myGit = (LegacyCompatibleGitAPIImpl) Git.with(listener, env).in(repo).using(gitImpl).getClient();
         File trackedFile = commitTrackedFile();
-        final String uniqueTagName = "testGetTagsOnCommit-" + UUID.randomUUID().toString();
+        final String uniqueTagName = "testGetTagsOnCommit-" + UUID.randomUUID();
         final String tagMessage = "Tagged with " + uniqueTagName;
         myGit.tag(uniqueTagName, tagMessage);
         List<Tag> result = myGit.getTagsOnCommit(uniqueTagName);
@@ -218,12 +237,9 @@ public class LegacyCompatibleGitAPIImplTest {
     }
 
     @Test
-    public void testLsTreeThrows() throws Exception {
+    public void testLsTreeThrows() {
         Class expectedExceptionClass = git instanceof CliGitAPIImpl ? GitException.class : NullPointerException.class;
-        assertThrows(expectedExceptionClass,
-                     () -> {
-                         git.lsTree("HEAD");
-                     });
+        assertThrows(expectedExceptionClass, () -> git.lsTree("HEAD"));
     }
 
     @Test
@@ -236,15 +252,15 @@ public class LegacyCompatibleGitAPIImplTest {
 
     @Test
     public void testExtractBranchNameFromBranchSpec() {
-        assertEquals(DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec(DEFAULT_BRANCH_NAME));
-        assertEquals(DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec("origin/" + DEFAULT_BRANCH_NAME));
-        assertEquals(DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec("*/" + DEFAULT_BRANCH_NAME));
+        assertEquals(defaultBranchName, git.extractBranchNameFromBranchSpec(defaultBranchName));
+        assertEquals(defaultBranchName, git.extractBranchNameFromBranchSpec("origin/" + defaultBranchName));
+        assertEquals(defaultBranchName, git.extractBranchNameFromBranchSpec("*/" + defaultBranchName));
         assertEquals("maste*", git.extractBranchNameFromBranchSpec("ori*/maste*"));
-        assertEquals("refs/heads/" + DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec("remotes/origin/" + DEFAULT_BRANCH_NAME));
-        assertEquals("refs/heads/" + DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec("refs/heads/" + DEFAULT_BRANCH_NAME));
-        assertEquals("refs/heads/origin/" + DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec("refs/heads/origin/" + DEFAULT_BRANCH_NAME));
-        assertEquals(DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec("other/" + DEFAULT_BRANCH_NAME));
-        assertEquals("refs/heads/" + DEFAULT_BRANCH_NAME, git.extractBranchNameFromBranchSpec("refs/remotes/origin/" + DEFAULT_BRANCH_NAME));
+        assertEquals("refs/heads/" + defaultBranchName, git.extractBranchNameFromBranchSpec("remotes/origin/" + defaultBranchName));
+        assertEquals("refs/heads/" + defaultBranchName, git.extractBranchNameFromBranchSpec("refs/heads/" + defaultBranchName));
+        assertEquals("refs/heads/origin/" + defaultBranchName, git.extractBranchNameFromBranchSpec("refs/heads/origin/" + defaultBranchName));
+        assertEquals(defaultBranchName, git.extractBranchNameFromBranchSpec("other/" + defaultBranchName));
+        assertEquals("refs/heads/" + defaultBranchName, git.extractBranchNameFromBranchSpec("refs/remotes/origin/" + defaultBranchName));
         assertEquals("refs/tags/mytag", git.extractBranchNameFromBranchSpec("refs/tags/mytag"));
     }
 }
