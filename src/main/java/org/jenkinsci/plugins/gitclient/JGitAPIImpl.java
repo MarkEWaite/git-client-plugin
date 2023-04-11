@@ -2675,6 +2675,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         if (recursive) {
             throw new UnsupportedOperationException("JGitAPIImpl doesn't support recursive submodule sync");
         }
+    }
 
     public void submoduleSync() throws GitException {
         try (Repository repo = getRepository()) {
