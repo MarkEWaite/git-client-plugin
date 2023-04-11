@@ -5,7 +5,7 @@
  * This program and the accompanying materials are made available
  * under the terms of the Eclipse Distribution License v1.0 which
  * accompanies this distribution, is reproduced below, and is
- * available at http://www.eclipse.org/org/documents/edl-v10.php
+ * available at https://www.eclipse.org/org/documents/edl-v10.php
  *
  * All rights reserved.
  *
@@ -51,7 +51,6 @@ import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
@@ -59,7 +58,6 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.SystemDefaultCredentialsProvider;
@@ -83,7 +81,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
-import java.net.ProtocolException;
 import java.net.Proxy;
 import java.net.SocketAddress;
 import java.net.URISyntaxException;
@@ -127,7 +124,8 @@ public class PreemptiveAuthHttpClientConnection implements HttpConnection {
 
     private Boolean followRedirects;
 
-    private X509HostnameVerifier hostnameverifier;
+    @Deprecated
+    private org.apache.http.conn.ssl.X509HostnameVerifier hostnameverifier;
 
     SSLContext ctx;
 
@@ -306,7 +304,7 @@ public class PreemptiveAuthHttpClientConnection implements HttpConnection {
         return resp.getStatusLine().getReasonPhrase();
     }
 
-    private void execute() throws IOException, ClientProtocolException {
+    private void execute() throws IOException {
         if (resp == null)
             if (entity != null) {
                 if (req instanceof HttpEntityEnclosingRequest) {
@@ -340,7 +338,7 @@ public class PreemptiveAuthHttpClientConnection implements HttpConnection {
         req.addHeader(name, value);
     }
 
-    public void setRequestMethod(String method) throws ProtocolException {
+    public void setRequestMethod(String method) {
         this.method = method;
         if ("GET".equalsIgnoreCase(method)) //$NON-NLS-1$
             req = new HttpGet(urlStr);
@@ -406,7 +404,7 @@ public class PreemptiveAuthHttpClientConnection implements HttpConnection {
         entity.setContentLength(contentLength);
     }
 
-    public OutputStream getOutputStream() throws IOException {
+    public OutputStream getOutputStream() {
         if (entity == null)
             entity = new TemporaryBufferEntity(new TemporaryBuffer.LocalFile(null));
         return entity.getBuffer();
@@ -431,27 +429,41 @@ public class PreemptiveAuthHttpClientConnection implements HttpConnection {
     }
 
     public void setHostnameVerifier(final HostnameVerifier hostnameverifier) {
-        this.hostnameverifier = new X509HostnameVerifier() {
-            public boolean verify(String hostname, SSLSession session) {
-                return hostnameverifier.verify(hostname, session);
-            }
+        this.hostnameverifier = new X509HostnameVerifierImpl(hostnameverifier);
+    }
 
-            public void verify(String host, String[] cns, String[] subjectAlts)
-                    throws SSLException {
-                throw new UnsupportedOperationException("Unsupported hostname verifier called for " + host);
-            }
+    @Deprecated
+    private static class X509HostnameVerifierImpl implements org.apache.http.conn.ssl.X509HostnameVerifier {
 
-            public void verify(String host, X509Certificate cert)
-                    throws SSLException {
-                throw new UnsupportedOperationException("Unsupported hostname verifier called for " + host + " with X.509 certificate");
-            }
+        private final HostnameVerifier hostnameverifier;
 
-            public void verify(String host, SSLSocket ssl) throws IOException {
-                if (!hostnameverifier.verify(host, ssl.getSession())) {
-                    throw new IOException();
-                }
+        public X509HostnameVerifierImpl(HostnameVerifier hostnameverifier) {
+            this.hostnameverifier = hostnameverifier;
+        }
+
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            return hostnameverifier.verify(hostname, session);
+        }
+
+        @Override
+        public void verify(String host, String[] cns, String[] subjectAlts)
+                throws SSLException {
+            throw new UnsupportedOperationException("Unsupported hostname verifier called for " + host);
+        }
+
+        @Override
+        public void verify(String host, X509Certificate cert)
+                throws SSLException {
+            throw new UnsupportedOperationException("Unsupported hostname verifier called for " + host + " with X.509 certificate");
+        }
+
+        @Override
+        public void verify(String host, SSLSocket ssl) throws IOException {
+            if (!hostnameverifier.verify(host, ssl.getSession())) {
+                throw new IOException();
             }
-        };
+        }
     }
 
     public void configure(KeyManager[] km, TrustManager[] tm,

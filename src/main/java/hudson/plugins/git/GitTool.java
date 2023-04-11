@@ -1,5 +1,7 @@
 package hudson.plugins.git;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.init.Initializer;
@@ -17,12 +19,14 @@ import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.interceptor.RequirePOST;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static hudson.init.InitMilestone.EXTENSIONS_AUGMENTED;
@@ -61,6 +65,7 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
         return getHome();
     }
 
+    @SuppressFBWarnings(value = "DCN_NULLPOINTER_EXCEPTION", justification = "Historical check (2013)")
     private static GitTool[] getInstallations(DescriptorImpl descriptor) {
         GitTool[] installations;
         try {
@@ -77,7 +82,7 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
      * @return default installation
      */
     public static GitTool getDefaultInstallation() {
-        Jenkins jenkinsInstance = Jenkins.getInstance();
+        Jenkins jenkinsInstance = Jenkins.get();
         DescriptorImpl gitTools = jenkinsInstance.getDescriptorByType(GitTool.DescriptorImpl.class);
         GitTool tool = gitTools.getInstallation(GitTool.DEFAULT);
         if (tool != null) {
@@ -93,17 +98,17 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
         }
     }
 
-    public GitTool forNode(Node node, TaskListener log) throws IOException, InterruptedException {
-        return new GitTool(getName(), translateFor(node, log), Collections.<ToolProperty<?>>emptyList());
+    public GitTool forNode(@NonNull Node node, TaskListener log) throws IOException, InterruptedException {
+        return new GitTool(getName(), translateFor(node, log), Collections.emptyList());
     }
 
     public GitTool forEnvironment(EnvVars environment) {
-        return new GitTool(getName(), environment.expand(getHome()), Collections.<ToolProperty<?>>emptyList());
+        return new GitTool(getName(), environment.expand(getHome()), Collections.emptyList());
     }
 
     @Override
     public DescriptorImpl getDescriptor() {
-        Jenkins jenkinsInstance = Jenkins.getInstance();
+        Jenkins jenkinsInstance = Jenkins.getInstanceOrNull();
         if (jenkinsInstance == null) {
             /* Throw AssertionError exception to match behavior of Jenkins.getDescriptorOrDie */
             throw new AssertionError("No Jenkins instance");
@@ -115,18 +120,19 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
     public static void onLoaded() {
         //Creates default tool installation if needed. Uses "git" or migrates data from previous versions
 
-        Jenkins jenkinsInstance = Jenkins.getInstance();
+        Jenkins jenkinsInstance = Jenkins.get();
         DescriptorImpl descriptor = (DescriptorImpl) jenkinsInstance.getDescriptor(GitTool.class);
         GitTool[] installations = getInstallations(descriptor);
 
         if (installations != null && installations.length > 0) {
+            LOGGER.log(Level.FINEST, "Already initialized GitTool, no need to initialize again");
             //No need to initialize if there's already something
             return;
         }
 
         String defaultGitExe = isWindows() ? "git.exe" : "git";
-        GitTool tool = new GitTool(DEFAULT, defaultGitExe, Collections.<ToolProperty<?>>emptyList());
-        descriptor.setInstallations(new GitTool[] { tool });
+        GitTool tool = new GitTool(DEFAULT, defaultGitExe, Collections.emptyList());
+        descriptor.setInstallations(tool);
         descriptor.save();
     }
 
@@ -139,20 +145,22 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
             load();
         }
 
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Git";
         }
 
         @Override
-        public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
+        public boolean configure(StaplerRequest req, JSONObject json) {
             setInstallations(req.bindJSONToList(clazz, json.get("tool")).toArray(new GitTool[0]));
             save();
             return true;
         }
 
+        @RequirePOST
         public FormValidation doCheckHome(@QueryParameter File value) {
-            Jenkins.getInstance().checkPermission(Jenkins.ADMINISTER);
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             String path = value.getPath();
 
             return FormValidation.validateExecutable(path);
@@ -184,7 +192,7 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
         @SuppressWarnings("unchecked")
         public List<ToolDescriptor<? extends GitTool>> getApplicableDescriptors() {
             List<ToolDescriptor<? extends GitTool>> r = new ArrayList<>();
-            Jenkins jenkinsInstance = Jenkins.getInstance();
+            Jenkins jenkinsInstance = Jenkins.get();
             for (ToolDescriptor<?> td : jenkinsInstance.<ToolInstallation,ToolDescriptor<?>>getDescriptorList(ToolInstallation.class)) {
                 if (GitTool.class.isAssignableFrom(td.clazz)) { // This checks cast is allowed
                     r.add((ToolDescriptor<? extends GitTool>)td); // This is the unchecked cast
@@ -201,4 +209,3 @@ public class GitTool extends ToolInstallation implements NodeSpecific<GitTool>, 
         return File.pathSeparatorChar==';';
     }
 }
-

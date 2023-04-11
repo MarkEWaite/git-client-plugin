@@ -1,12 +1,14 @@
-#!groovy
+#!/usr/bin/env groovy
 
-Random random = new Random() // Randomize which Jenkins version is selected for more testing
-def use_newer_jenkins = random.nextBoolean() // Use newer Jenkins on one build but slightly older on other
-
-// build recommended configurations
-subsetConfiguration = [ [ jdk: '8',  platform: 'windows', jenkins: null                      ],
-                        [ jdk: '8',  platform: 'linux',   jenkins: !use_newer_jenkins ? '2.176.3' : '2.164.1', javaLevel: '8' ],
-                        [ jdk: '11', platform: 'linux',   jenkins:  use_newer_jenkins ? '2.176.3' : '2.164.1', javaLevel: '8' ]
-                      ]
-
-buildPlugin(configurations: subsetConfiguration, failFast: false)
+/* `buildPlugin` step provided by: https://github.com/jenkins-infra/pipeline-library */
+buildPlugin(
+  // Container agents start faster and are easier to administer
+  useContainerAgent: true,
+  // Show failures on all configurations
+  failFast: false,
+  // Test Java 11 with default release, Java 17 with more recent
+  configurations: [
+    [platform: 'linux',   jdk: '11'], // Linux first for coverage report on ci.jenkins.io
+    [platform: 'windows', jdk: '17', jenkins: '2.389']
+  ]
+)

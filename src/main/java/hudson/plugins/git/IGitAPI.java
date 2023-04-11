@@ -16,6 +16,7 @@ import java.util.List;
  *
  * @deprecated methods here are deprecated until proven useful by a plugin
  */
+@Deprecated
 public interface IGitAPI extends GitClient {
 
     /**
@@ -44,7 +45,7 @@ public interface IGitAPI extends GitClient {
      * Set remote repository name and URL.
      *
      * @param name name for the remote repository, for examnple, "origin"
-     * @param url URL for the remote repository, for example git://github.com/jenkinsci/git-client-plugin.git
+     * @param url URL for the remote repository, for example https://github.com/jenkinsci/git-client-plugin.git
      * @param GIT_DIR directory containing git repository
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      * @throws java.lang.InterruptedException if interrupted.
@@ -141,7 +142,7 @@ public interface IGitAPI extends GitClient {
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      * @throws java.lang.InterruptedException if interrupted.
      */
-    public void fetch(String repository, String refspec) throws GitException, InterruptedException;
+    void fetch(String repository, String refspec) throws GitException, InterruptedException;
 
     /**
      * Retrieve commits from RemoteConfig.
@@ -190,7 +191,7 @@ public interface IGitAPI extends GitClient {
     /**
      * Merge commits from revspec into the current branch.
      *
-     * @param revSpec the revision specification to be merged (for example, origin/master)
+     * @param revSpec the revision specification to be merged (for example, origin/main)
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      * @throws java.lang.InterruptedException if interrupted.
      */
@@ -217,7 +218,6 @@ public interface IGitAPI extends GitClient {
 
     /**
      * Find all the branches that include the given commit.
-     * @deprecated Use {@link GitClient#getBranchesContaining(String, boolean)}
      *
      * @param revspec substring to be searched for branch name
      * @throws hudson.plugins.git.GitException on failure
@@ -227,6 +227,7 @@ public interface IGitAPI extends GitClient {
      *             instead. This method does work only with local branches on
      *             one implementation and with all the branches - in the other
      */
+    @Deprecated
     List<Branch> getBranchesContaining(String revspec) throws GitException, InterruptedException;
 
     /**
@@ -241,6 +242,7 @@ public interface IGitAPI extends GitClient {
      * @deprecated
      *  Use {@link #lsTree(String, boolean)} to be explicit about the recursion behaviour.
      */
+    @Deprecated
     List<IndexEntry> lsTree(String treeIsh) throws GitException, InterruptedException;
 
     /**
@@ -311,5 +313,6 @@ public interface IGitAPI extends GitClient {
      * @throws java.lang.InterruptedException if interrupted.
      */
     @Restricted(NoExternalUse.class)
+    @Deprecated
     String getAllLogEntries(String branch) throws InterruptedException;
 }

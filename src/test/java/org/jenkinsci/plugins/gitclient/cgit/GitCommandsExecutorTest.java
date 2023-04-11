@@ -6,7 +6,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.theInstance;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -197,7 +198,7 @@ public class GitCommandsExecutorTest {
     @Test
     public void commandWasInterrupted() throws Exception {
         Exception commandException = new InterruptedException("some interrupt");
-        List<Callable<String>> commands = asList(erroneousCommand(commandException));
+        List<Callable<String>> commands = Collections.singletonList(erroneousCommand(commandException));
 
         try {
             new GitCommandsExecutor(threads, listener).invokeAll(commands);
@@ -212,7 +213,7 @@ public class GitCommandsExecutorTest {
     @Test
     public void commandHadGitProblem() throws Exception {
         Exception commandException = new GitException("some error");
-        List<Callable<String>> commands = asList(erroneousCommand(commandException));
+        List<Callable<String>> commands = Collections.singletonList(erroneousCommand(commandException));
 
         try {
             new GitCommandsExecutor(threads, listener).invokeAll(commands);
@@ -227,7 +228,7 @@ public class GitCommandsExecutorTest {
     @Test
     public void commandHadUnknownProblem() throws Exception {
         Exception commandException = new RuntimeException("some error");
-        List<Callable<String>> commands = asList(erroneousCommand(commandException));
+        List<Callable<String>> commands = Collections.singletonList(erroneousCommand(commandException));
 
         try {
             new GitCommandsExecutor(threads, listener).invokeAll(commands);
