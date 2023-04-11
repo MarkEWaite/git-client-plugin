@@ -823,7 +823,7 @@ public interface GitClient {
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      * @throws java.lang.InterruptedException if interrupted.
      */
-    void setupSubmoduleUrls( Revision rev, TaskListener listener ) throws GitException, InterruptedException;
+    void setupSubmoduleUrls(Revision rev, TaskListener listener) throws GitException, InterruptedException;
 
     /**
      * Set up submodule URLs so that they correspond to the remote pertaining to
@@ -835,8 +835,8 @@ public interface GitClient {
      * @throws hudson.plugins.git.GitException if underlying git operation fails.
      * @throws java.lang.InterruptedException if interrupted.
      */
-    void setupSubmoduleUrls( Revision rev, TaskListener listener, boolean recursive ) throws GitException, InterruptedException;
-
+    void setupSubmoduleUrls(Revision rev, TaskListener listener, boolean recursive)
+            throws GitException, InterruptedException;
 
     // --- commit log and notes
 

@@ -1381,12 +1381,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public void submoduleSync(boolean recursive) throws GitException, InterruptedException {
         // Check if git submodule has sync support.
         // Only available in git 1.6.1 and above
-        if (recursive)
-        {
+        if (recursive) {
             launchCommand("submodule", "sync", "--recursive");
-        }
-        else
-        {
+        } else {
             launchCommand("submodule", "sync");
         }
     }
@@ -1865,7 +1862,8 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * Set up submodule URLs so that they correspond to the remote pertaining to
      * the revision that has been checked out.
      */
-    public void setupSubmoduleUrls( Revision rev, TaskListener listener, boolean recursive ) throws GitException, InterruptedException {
+    public void setupSubmoduleUrls(Revision rev, TaskListener listener, boolean recursive)
+            throws GitException, InterruptedException {
         String remote = null;
 
         // try to locate the remote repository from where this commit came from
@@ -1912,8 +1910,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             remote = getDefaultRemote();
         }
 
-        if (remote!=null)
-            setupSubmoduleUrls( remote, listener, recursive );
+        if (remote != null) setupSubmoduleUrls(remote, listener, recursive);
     }
 
     /** {@inheritDoc} */

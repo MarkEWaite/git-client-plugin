@@ -789,7 +789,8 @@ class RemoteGitImpl implements GitClient, hudson.plugins.git.IGitAPI, Serializab
     }
 
     /** {@inheritDoc} */
-    public void setupSubmoduleUrls(Revision rev, TaskListener listener, boolean recursive) throws GitException, InterruptedException {
+    public void setupSubmoduleUrls(Revision rev, TaskListener listener, boolean recursive)
+            throws GitException, InterruptedException {
         proxy.setupSubmoduleUrls(rev, listener, recursive);
     }
 
