@@ -28,6 +28,8 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import java.util.ArrayList;
 import java.util.List;
+
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -107,7 +109,7 @@ public class UnsupportedCommandTest {
     @Test
     public void testShallow() {
         unsupportedCommand.shallow(true);
-        assertFalse(unsupportedCommand.determineSupportForJGit());
+        assertTrue(unsupportedCommand.determineSupportForJGit());
     }
 
     @Test
@@ -118,14 +120,14 @@ public class UnsupportedCommandTest {
 
     @Test
     public void testDepthNegative() {
-        unsupportedCommand.depth(-1); // Surprising, but acceptable
-        assertFalse(unsupportedCommand.determineSupportForJGit());
+        unsupportedCommand.depth(-1);
+        assertTrue(unsupportedCommand.determineSupportForJGit());
     }
 
     @Test
     public void testDepth() {
         unsupportedCommand.depth(1);
-        assertFalse(unsupportedCommand.determineSupportForJGit());
+        assertTrue(unsupportedCommand.determineSupportForJGit());
     }
 
     @Test
@@ -261,11 +263,13 @@ public class UnsupportedCommandTest {
         public FakeCredentials() {
         }
 
+        @NonNull
         @Override
         public String getDescription() {
             throw new UnsupportedOperationException("Unsupported");
         }
 
+        @NonNull
         @Override
         public String getId() {
             throw new UnsupportedOperationException("Unsupported");
@@ -276,6 +280,7 @@ public class UnsupportedCommandTest {
             throw new UnsupportedOperationException("Unsupported");
         }
 
+        @NonNull
         @Override
         public CredentialsDescriptor getDescriptor() {
             throw new UnsupportedOperationException("Unsupported");
