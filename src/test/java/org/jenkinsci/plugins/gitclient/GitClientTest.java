@@ -2715,8 +2715,7 @@ public class GitClientTest {
         CliGitAPIImpl cliGitClient;
         if (gitClient instanceof CliGitAPIImpl) {
             cliGitClient = (CliGitAPIImpl) gitClient;
-        }
-        else {
+        } else {
             // this test is only available for CLIGit
             return;
         }
@@ -2750,9 +2749,10 @@ public class GitClientTest {
         try {
             gitClient.submoduleUpdate().execute();
             fail("Did not throw expected exception");
-        }
-        catch (GitException ge) {
-            assertThat(ge.getMessage(), containsString("The following untracked working tree files would be overwritten by checkout"));
+        } catch (GitException ge) {
+            assertThat(
+                    ge.getMessage(),
+                    containsString("The following untracked working tree files would be overwritten by checkout"));
         }
         assertEquals(subGitClient.revParse("HEAD").name(), originalSubmoduleRevision);
         gitClient.submoduleUpdate().forceUpdate(true).execute();

@@ -1392,13 +1392,13 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     @Override
     public SubmoduleUpdateCommand submoduleUpdate() {
         return new SubmoduleUpdateCommand() {
-            private boolean recursive                      = false;
-            private boolean remoteTracking                 = false;
-            private boolean parentCredentials              = false;
-            private boolean shallow                        = false;
-            private boolean forceUpdate                    = false;
-            private String  ref                            = null;
-            private Map<String, String> submodBranch   = new HashMap<>();
+            private boolean recursive = false;
+            private boolean remoteTracking = false;
+            private boolean parentCredentials = false;
+            private boolean shallow = false;
+            private boolean forceUpdate = false;
+            private String ref = null;
+            private Map<String, String> submodBranch = new HashMap<>();
             private Integer timeout;
             private Integer depth = 1;
             private int threads = 1;

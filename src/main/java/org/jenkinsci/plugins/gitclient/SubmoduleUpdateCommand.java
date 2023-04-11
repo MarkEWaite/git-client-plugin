@@ -69,7 +69,7 @@ public interface SubmoduleUpdateCommand extends GitCommand {
     SubmoduleUpdateCommand shallow(boolean shallow);
 
     /**
-     * Forces the checkout of submodules. 
+     * Forces the checkout of submodules.
      * This will discard any conflicting local changes and makes sure the
      * submodule is at the requested commit
      * this addes --checkout --force to the submodule update command.

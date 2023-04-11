@@ -2392,7 +2392,8 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             @Override
             public org.jenkinsci.plugins.gitclient.SubmoduleUpdateCommand forceUpdate(boolean forceUpdate) {
                 if (forceUpdate) {
-                    listener.getLogger().println("[WARNING] JGit doesn't support forceUpdate clone. This flag is ignored");
+                    listener.getLogger()
+                            .println("[WARNING] JGit doesn't support forceUpdate clone. This flag is ignored");
                 }
                 return this;
             }
