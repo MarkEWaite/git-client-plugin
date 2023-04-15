@@ -90,7 +90,7 @@ abstract class LegacyCompatibleGitAPIImpl extends AbstractGitAPIImpl implements 
         }
     }
 
-    /** {@inheitDoc} */
+    /** {@inheritDoc} */
     public void setupSubmoduleUrls(Revision rev, TaskListener listener) throws GitException, InterruptedException {
         setupSubmoduleUrls(rev, listener, false);
     }
