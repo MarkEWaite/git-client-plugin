@@ -1372,11 +1372,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     }
 
     /**
-     * Sync submodule URLs
+     * Synchronize submodule URLs with option to recursively synchronize nested submodules.
      *
      * @param recursive Checkout submodules recursively
-     * @throws hudson.plugins.git.GitException if underlying git operation fails.
-     * @throws java.lang.InterruptedException if interrupted.
+     * @throws GitException if git operation fails.
+     * @throws InterruptedException if interrupted during execution.
      */
     public void submoduleSync(boolean recursive) throws GitException, InterruptedException {
         // Check if git submodule has sync support.
@@ -1386,6 +1386,17 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         } else {
             launchCommand("submodule", "sync");
         }
+    }
+
+    /**
+     * Sync submodule URLs
+     *
+     * @throws hudson.plugins.git.GitException if underlying git operation fails.
+     * @throws java.lang.InterruptedException if interrupted.
+     */
+    @Override
+    public void submoduleSync() throws GitException, InterruptedException {
+        submoduleSync(false);
     }
 
     /**
@@ -1862,6 +1873,17 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
      * Set up submodule URLs so that they correspond to the remote pertaining to
      * the revision that has been checked out.
      */
+    @Override
+    public void setupSubmoduleUrls(Revision rev, TaskListener listener) throws GitException, InterruptedException {
+        setupSubmoduleUrls(rev, listener, false);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Configure submodule URLs to correspond to the remote pertaining
+     * to the revision that has been checked out.
+     */
     public void setupSubmoduleUrls(Revision rev, TaskListener listener, boolean recursive)
             throws GitException, InterruptedException {
         String remote = null;
@@ -1910,7 +1932,9 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             remote = getDefaultRemote();
         }
 
-        if (remote != null) setupSubmoduleUrls(remote, listener, recursive);
+        if (remote != null) {
+            setupSubmoduleUrls(remote, listener, recursive);
+        }
     }
 
     /** {@inheritDoc} */
