@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>4.64</version>
+    <version>4.67</version>
     <relativePath />
   </parent>
 
@@ -58,13 +58,14 @@
   </scm>
 
   <properties>
-    <revision>4.2.1</revision>
+    <revision>4.4.1</revision>
     <changelist>-SNAPSHOT</changelist>
-    <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
+    <!-- Character set tests fail unless file.encoding is set -->
     <argLine>-Dfile.encoding=${project.build.sourceEncoding}</argLine>
+    <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
     <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
-    <jenkins.version>2.361.4</jenkins.version>
-    <jgit.version>6.5.0.202303070854-r</jgit.version>
+    <jenkins.version>2.387.3</jenkins.version>
+    <jgit.version>6.6.0.202305301015-r</jgit.version>
     <spotbugs.effort>Max</spotbugs.effort>
     <spotbugs.threshold>Medium</spotbugs.threshold>
     <spotless.check.skip>false</spotless.check.skip>
@@ -74,8 +75,8 @@
     <dependencies>
       <dependency>
         <groupId>io.jenkins.tools.bom</groupId>
-        <artifactId>bom-2.361.x</artifactId>
-        <version>2102.v854b_fec19c92</version>
+        <artifactId>bom-2.387.x</artifactId>
+        <version>2179.v0884e842b_859</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -213,7 +214,7 @@
     <dependency>
       <groupId>nl.jqno.equalsverifier</groupId>
       <artifactId>equalsverifier</artifactId>
-      <version>3.14.1</version>
+      <version>3.14.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
