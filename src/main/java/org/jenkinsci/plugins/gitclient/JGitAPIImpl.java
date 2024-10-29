@@ -3279,7 +3279,7 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         }
     }
 
-    /** inline ${@link hudson.Functions#isWindows()} to prevent a transient remote classloader issue */
+    /** inline ${@link hudson.Functions#isWindows()} to avoid a transient remote classloader issue */
     private static boolean isWindows() {
         return File.pathSeparatorChar == ';';
     }
