@@ -3,7 +3,7 @@
 :toc: macro
 :toc-title:
 
-image::https://static.scarf.sh/a.png?x-pxid=e011adc8-3614-41ef-b7e8-2f42328e8962
+image::https://static.scarf.sh/a.png?x-pxid=e011adc8-3614-41ef-b7e8-2f42328e8962&page=git-client-plugin-readme&author=markewaite
 
 [#introduction]
 == Introduction
