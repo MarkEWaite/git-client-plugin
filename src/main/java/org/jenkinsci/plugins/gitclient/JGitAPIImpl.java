@@ -94,7 +94,6 @@ import org.eclipse.jgit.errors.NotSupportedException;
 import org.eclipse.jgit.errors.TransportException;
 import org.eclipse.jgit.fnmatch.FileNameMatcher;
 import org.eclipse.jgit.internal.storage.file.FileRepository;
-import org.eclipse.jgit.internal.storage.file.WindowCache;
 import org.eclipse.jgit.internal.transport.ssh.OpenSshConfigFile;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.Constants;
@@ -107,7 +106,6 @@ import org.eclipse.jgit.lib.RefDatabase;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryBuilder;
-import org.eclipse.jgit.lib.RepositoryCache;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.merge.MergeStrategy;
 import org.eclipse.jgit.notes.Note;
@@ -121,7 +119,6 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.filter.MaxCountRevFilter;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
-import org.eclipse.jgit.storage.file.WindowCacheConfig;
 import org.eclipse.jgit.submodule.SubmoduleWalk;
 import org.eclipse.jgit.transport.CredentialsProvider;
 import org.eclipse.jgit.transport.FetchConnection;
@@ -201,12 +198,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         super(workspace == null ? new File(".") : workspace, hostKeyFactory);
         this.listener = listener;
         hostKeyVerifierFactory = hostKeyFactory;
-    }
-
-    private void workaroundJGitFileLeak() {
-        // TODO Avoid JGit 7.2.0 and 7.3.0 file handle leak
-        RepositoryCache.clear();
-        WindowCache.reconfigure(new WindowCacheConfig());
     }
 
     public SshdSessionFactory buildSshdSessionFactory(@NonNull final HostKeyVerifierFactory hostKeyVerifierFactory) {
@@ -529,8 +520,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                             listener.getLogger().println("[WARNING] conflicting path " + conflict + " not deleted");
                         }
                     }
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             } catch (IOException | GitAPIException e) {
                 throw new GitException("Could not checkout " + ref, e);
@@ -540,8 +529,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 } else {
                     throw e;
                 }
-            } finally {
-                workaroundJGitFileLeak();
             }
         }
     }
@@ -557,8 +544,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     .call();
         } catch (GitAPIException e) {
             throw new GitException("Could not checkout " + branch + " with start point " + ref, e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -579,8 +564,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             doCheckoutWithResetAndRetry(branch);
         } catch (IOException e) {
             throw new GitException("Could not checkout " + branch + " with start point " + ref, e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -609,8 +592,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             cmd.call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -621,8 +602,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             git(repo).branchCreate().setName(name).call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -633,8 +612,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             git(repo).branchDelete().setForce(true).setBranchNames(name).call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -670,8 +647,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return branches;
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -687,8 +662,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     .call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -700,8 +673,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return tag != null;
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -840,8 +811,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     fetch.call();
                 } catch (GitAPIException e) {
                     throw new GitException(e);
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
         };
@@ -886,8 +855,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             fetch.call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -916,8 +883,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (IOException e) {
             throw new GitException("Could not update " + refName + " to HEAD", e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -930,8 +895,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return ref != null;
         } catch (IOException e) {
             throw new GitException("Error checking ref " + refName, e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -955,8 +918,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (IOException e) {
             throw new GitException("Could not delete " + refName, e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -977,8 +938,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return refs;
         } catch (IOException e) {
             throw new GitException("Error retrieving refs with prefix " + refPrefix, e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1044,8 +1003,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (JGitInternalException | GitAPIException | IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
         return references;
     }
@@ -1080,8 +1037,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (GitAPIException | IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
         return references;
     }
@@ -1141,8 +1096,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (IOException | URISyntaxException | IllegalStateException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
         return null;
     }
@@ -1161,8 +1114,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     public String getRemoteUrl(String name) throws GitException {
         try (Repository repo = getRepository()) {
             return repo.getConfig().getString("remote", name, "url");
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1204,8 +1155,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             config.save();
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1222,8 +1171,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             config.save();
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1243,8 +1190,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (GitAPIException | IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1292,8 +1237,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (GitAPIException | IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1530,8 +1473,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                         pw.println();
                     }
                 }
-            } finally {
-                workaroundJGitFileLeak();
             }
         }
     }
@@ -1554,8 +1495,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     .call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1733,8 +1672,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                                 }
                             }
                         }
-                    } finally {
-                        workaroundJGitFileLeak();
                     }
 
                     // Jgit repository has alternates directory set, but seems to ignore them
@@ -1772,8 +1709,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     }
                 } catch (GitAPIException | IOException e) {
                     throw new GitException(e);
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
         };
@@ -1885,8 +1820,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     }
                 } catch (GitAPIException e) {
                     throw new GitException("Failed to merge " + rev, e);
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
         };
@@ -1945,8 +1878,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     }
                 } catch (GitAPIException e) {
                     throw new GitException("Failed to rebase " + upstream, e);
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
         };
@@ -1959,8 +1890,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             git(repo).tagDelete().setTags(tagName).call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1973,8 +1902,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return walk.parseTag(repo.resolve(tagName)).getFullMessage().trim();
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -1997,8 +1924,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return r;
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2009,8 +1934,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             git(repo).submoduleAdd().setPath(subdir).setURI(remoteURL).call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2034,8 +1957,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (InvalidPatternException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
         return tags;
     }
@@ -2063,8 +1984,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return tags;
         } catch (IOException | InvalidPatternException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2081,8 +2000,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return repo.getObjectDatabase().exists();
         } catch (GitException e) {
             return false;
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2111,8 +2028,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 return parentRepoBuilder.getGitDir() != null;
             } catch (GitException e) {
                 return false;
-            } finally {
-                workaroundJGitFileLeak();
             }
         }
         return false;
@@ -2143,8 +2058,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             } catch (IOException ioe) {
                 throw new GitException(ioe);
             }
-        } finally {
-            workaroundJGitFileLeak();
         }
         return found;
     }
@@ -2169,8 +2082,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             }
         } catch (URISyntaxException | IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2191,8 +2102,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     }
                 }
             }
-        } finally {
-            workaroundJGitFileLeak();
         }
         return branches;
     }
@@ -2287,8 +2196,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     config.unset("remote", "org_jenkinsci_plugins_gitclient_JGitAPIImpl", "url");
                 } catch (IOException | JGitInternalException | GitAPIException e) {
                     throw new GitException(e);
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
 
@@ -2450,8 +2357,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     }
                 } catch (IOException e) {
                     throw new GitException(e);
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
         };
@@ -2503,8 +2408,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return id;
         } catch (IOException e) {
             throw new GitException("Failed to resolve git reference " + revName, e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2549,8 +2452,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return r;
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2561,8 +2462,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             while (generator.next()) {
                 submodules.add(new JGitAPIImpl(generator.getDirectory(), listener));
             }
-        } finally {
-            workaroundJGitFileLeak();
         }
         return submodules;
     }
@@ -2688,8 +2587,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     }
                 } catch (IOException | GitAPIException e) {
                     throw new GitException(e);
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
         };
@@ -2709,8 +2606,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             merge(repo.resolve(refSpec));
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2814,8 +2709,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return result;
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2834,8 +2727,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     branches.add(r);
                 }
             }
-        } finally {
-            workaroundJGitFileLeak();
         }
         return branches;
     }
@@ -2860,8 +2751,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return base.getId();
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2886,8 +2775,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return w.toString().trim();
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2909,8 +2796,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     walk.markStart(c);
                 }
             }
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2927,8 +2812,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             git(repo).submoduleInit().call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2944,8 +2827,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             git(repo).submoduleSync().call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -2956,8 +2837,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
         String v = null;
         try (Repository repo = getRepository()) {
             v = repo.getConfig().getString("submodule", name, "url");
-        } finally {
-            workaroundJGitFileLeak();
         }
         if (v == null) {
             throw new GitException("No such submodule: " + name);
@@ -2975,8 +2854,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             config.save();
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -3158,8 +3035,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return candidates.get(0).describe(tipId);
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -3186,8 +3061,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             return r;
         } catch (IOException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -3201,8 +3074,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             reset.call();
         } catch (GitAPIException e) {
             throw new GitException(e);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
@@ -3220,23 +3091,17 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if ((new File(workspace, ".git")).exists()) {
                     try (Repository repo = getRepository()) {
                         isBare = repo.isBare();
-                    } finally {
-                        workaroundJGitFileLeak();
                     }
                 } else {
                     try (Repository repo =
                             new RepositoryBuilder().setGitDir(workspace).build()) {
                         isBare = repo.isBare();
-                    } finally {
-                        workaroundJGitFileLeak();
                     }
                 }
             } else {
                 try (Repository repo =
                         new RepositoryBuilder().setGitDir(new File(GIT_DIR)).build()) {
                     isBare = repo.isBare();
-                } finally {
-                    workaroundJGitFileLeak();
                 }
             }
         } catch (IOException ioe) {
@@ -3268,8 +3133,6 @@ public class JGitAPIImpl extends LegacyCompatibleGitAPIImpl {
             config.save();
         } catch (IOException ioe) {
             throw new GitException(ioe);
-        } finally {
-            workaroundJGitFileLeak();
         }
     }
 
