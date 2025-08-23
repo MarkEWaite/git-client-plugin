@@ -268,4 +268,5 @@ Release notes have been recorded in https://github.com/jenkinsci/git-client-plug
 Prior release notes were recorded in the git client plugin repository link:https://github.com/jenkinsci/git-client-plugin/blob/91c7435dffb489c1e0eb0252c7992c61054b822e/CHANGELOG.adoc#changelog-moved-to-github-releases[change log].
 Sat Aug 23 08:46:09 MDT 2025
 Sat Aug 23 08:47:02 MDT 2025 (from branch-A)
+Sat Aug 23 08:48:08 MDT 2025 (from branch-B)
 Sat Aug 23 08:48:49 MDT 2025
