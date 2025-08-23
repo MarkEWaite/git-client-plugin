@@ -267,3 +267,4 @@ Default is `false` so that `setsid` is not used.
 Release notes have been recorded in https://github.com/jenkinsci/git-client-plugin/releases[GitHub] since git client plugin 2.8.1.
 Prior release notes were recorded in the git client plugin repository link:https://github.com/jenkinsci/git-client-plugin/blob/91c7435dffb489c1e0eb0252c7992c61054b822e/CHANGELOG.adoc#changelog-moved-to-github-releases[change log].
 Sat Aug 23 08:46:09 MDT 2025
+Sat Aug 23 08:48:08 MDT 2025
