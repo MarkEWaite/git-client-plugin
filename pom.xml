@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>5.18</version>
+    <version>5.23</version>
     <relativePath />
   </parent>
 
@@ -32,11 +32,13 @@
   </scm>
 
   <properties>
-    <revision>6.3.0</revision>
+    <revision>6.3.4</revision>
     <changelist>-SNAPSHOT</changelist>
     <!-- Character set tests fail unless file.encoding is set -->
     <argLine>-Dfile.encoding=${project.build.sourceEncoding}</argLine>
     <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
+    <hpi.bundledArtifacts>JavaEWAH,org.eclipse.jgit,org.eclipse.jgit.http.apache,org.eclipse.jgit.http.server,org.eclipse.jgit.lfs,org.eclipse.jgit.ssh.apache</hpi.bundledArtifacts>
+    <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
     <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
     <jenkins.baseline>2.504</jenkins.baseline>
     <jenkins.version>${jenkins.baseline}.1</jenkins.version>
@@ -51,7 +53,7 @@
       <dependency>
         <groupId>io.jenkins.tools.bom</groupId>
         <artifactId>bom-${jenkins.baseline}.x</artifactId>
-        <version>5043.v855ff4819a_0f</version>
+        <version>5252.va_0266944a_b_42</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -62,6 +64,10 @@
       <groupId>io.jenkins</groupId>
       <artifactId>configuration-as-code</artifactId>
       <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.jenkins.plugins</groupId>
+      <artifactId>commons-lang3-api</artifactId>
     </dependency>
     <!-- Use gson api plugin rather than JGit LFS transitive dependency inclusion of gson -->
     <dependency>
@@ -208,7 +214,7 @@
     <dependency>
       <groupId>nl.jqno.equalsverifier</groupId>
       <artifactId>equalsverifier</artifactId>
-      <version>4.0.5</version>
+      <version>4.0.7</version>
       <scope>test</scope>
     </dependency>
     <dependency>
