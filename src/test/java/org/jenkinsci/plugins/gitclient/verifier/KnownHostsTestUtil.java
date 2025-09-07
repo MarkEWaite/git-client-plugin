@@ -31,9 +31,11 @@ import org.eclipse.jgit.internal.transport.sshd.JGitClientSession;
 import org.eclipse.jgit.internal.transport.sshd.JGitServerKeyVerifier;
 import org.eclipse.jgit.internal.transport.sshd.JGitSshClient;
 import org.eclipse.jgit.transport.sshd.IdentityPasswordProvider;
+import org.junit.jupiter.api.io.TempDir;
 
 public class KnownHostsTestUtil {
 
+    @TempDir
     private final File testFolder;
 
     public KnownHostsTestUtil(File testFolder) {
