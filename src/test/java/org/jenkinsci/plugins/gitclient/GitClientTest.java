@@ -106,14 +106,57 @@ class GitClientTest {
     private final CliGitAPIImplTest cliGitAPIImplTest = new CliGitAPIImplTest();
 
     /* Capabilities of command line git in current environment */
-    private boolean CLI_GIT_HAS_GIT_LFS;
-    private boolean CLI_GIT_HAS_GIT_LFS_CONFIGURED;
-    private boolean LFS_SUPPORTS_SPARSE_CHECKOUT;
+    private static boolean CLI_GIT_HAS_GIT_LFS;
+    private static boolean CLI_GIT_HAS_GIT_LFS_CONFIGURED;
+    private static boolean LFS_SUPPORTS_SPARSE_CHECKOUT;
 
     @TempDir(cleanup = CleanupMode.NEVER)
     private File tempFolder;
 
     private File repoRoot = null;
+
+    @BeforeAll
+    static void detectGitLFS() throws Exception {
+        CliGitAPIImpl cliGitClient;
+        cliGitClient = (CliGitAPIImpl) Git.with(TaskListener.NULL, new EnvVars())
+                .in(new File("."))
+                .using("git")
+                .getClient();
+
+        boolean gitLFSExists;
+        boolean gitSparseCheckoutWithLFS;
+        try {
+            // If git-lfs is installed then the version string should look like this:
+            // git-lfs/1.5.6 (GitHub; linux amd64; go 1.7.4)
+            String lfsVersionOutput =
+                    cliGitClient.launchCommand("lfs", "version").trim();
+            gitLFSExists = lfsVersionOutput.startsWith("git-lfs");
+            gitSparseCheckoutWithLFS =
+                    lfsVersionOutput.matches("git-lfs/[3-9][.].*|git-lfs/2[.]1[0-9].*|git-lfs/2[.][89].*");
+            // Avoid test failures on ci.jenkins.io agents by calling `git lfs install`
+            // Intentionally ignores the return value, assumes that failure will throw an exception
+            // and disable the git LFS tests
+            cliGitClient.launchCommand("lfs", "install");
+        } catch (GitException exception) {
+            // This is expected when git-lfs is not installed.
+            gitLFSExists = false;
+            gitSparseCheckoutWithLFS = false;
+        }
+        CLI_GIT_HAS_GIT_LFS = gitLFSExists;
+
+        boolean gitLFSConfigured;
+        try {
+            // If git-lfs is configured then the smudge filter will not be empty
+            gitLFSConfigured =
+                    cliGitClient.launchCommand("config", "filter.lfs.smudge").contains("git-lfs");
+        } catch (GitException exception) {
+            // This is expected when git-lfs is not installed.
+            gitLFSConfigured = false;
+        }
+        CLI_GIT_HAS_GIT_LFS_CONFIGURED = gitLFSConfigured;
+        LFS_SUPPORTS_SPARSE_CHECKOUT =
+                CLI_GIT_HAS_GIT_LFS_CONFIGURED && gitSparseCheckoutWithLFS && cliGitClient.isAtLeastVersion(2, 0, 0, 0);
+    }
 
     static List<Arguments> gitObjects() {
         List<Arguments> arguments = new ArrayList<>();
@@ -251,50 +294,6 @@ class GitClientTest {
                 .in(srcRepoDir)
                 .using(gitImplName)
                 .getClient();
-
-        CliGitAPIImpl cliGitClient;
-        if (this.srcGitClient instanceof CliGitAPIImpl impl) {
-            cliGitClient = impl;
-        } else {
-            cliGitClient = (CliGitAPIImpl) Git.with(TaskListener.NULL, new EnvVars())
-                    .in(srcRepoDir)
-                    .using("git")
-                    .getClient();
-        }
-
-        boolean gitLFSExists;
-        boolean gitSparseCheckoutWithLFS;
-        try {
-            // If git-lfs is installed then the version string should look like this:
-            // git-lfs/1.5.6 (GitHub; linux amd64; go 1.7.4)
-            String lfsVersionOutput =
-                    cliGitClient.launchCommand("lfs", "version").trim();
-            gitLFSExists = lfsVersionOutput.startsWith("git-lfs");
-            gitSparseCheckoutWithLFS =
-                    lfsVersionOutput.matches("git-lfs/[3-9][.].*|git-lfs/2[.]1[0-9].*|git-lfs/2[.][89].*");
-            // Avoid test failures on ci.jenkins.io agents by calling `git lfs install`
-            // Intentionally ignores the return value, assumes that failure will throw an exception
-            // and disable the git LFS tests
-            cliGitClient.launchCommand("lfs", "install");
-        } catch (GitException exception) {
-            // This is expected when git-lfs is not installed.
-            gitLFSExists = false;
-            gitSparseCheckoutWithLFS = false;
-        }
-        CLI_GIT_HAS_GIT_LFS = gitLFSExists;
-
-        boolean gitLFSConfigured;
-        try {
-            // If git-lfs is configured then the smudge filter will not be empty
-            gitLFSConfigured =
-                    cliGitClient.launchCommand("config", "filter.lfs.smudge").contains("git-lfs");
-        } catch (GitException exception) {
-            // This is expected when git-lfs is not installed.
-            gitLFSConfigured = false;
-        }
-        CLI_GIT_HAS_GIT_LFS_CONFIGURED = gitLFSConfigured;
-        LFS_SUPPORTS_SPARSE_CHECKOUT =
-                CLI_GIT_HAS_GIT_LFS_CONFIGURED && gitSparseCheckoutWithLFS && cliGitClient.isAtLeastVersion(2, 0, 0, 0);
     }
 
     /**
